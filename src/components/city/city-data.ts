@@ -1,4 +1,5 @@
 import { ISSUE_TYPE_LABELS, publicMapApi, type MapReport, type MapSummary } from "@/services/api";
+import { demoRiskZones } from "@/data/demoData";
 import type { CityData, CityRiskLevel, CityZone } from "./types";
 
 const ACTIVE_STATUSES = new Set([
@@ -9,44 +10,7 @@ const ACTIVE_STATUSES = new Set([
   "IN_PROGRESS",
 ]);
 
-export const DEMONSTRATION_ZONES: CityZone[] = [
-  {
-    id: "demo-sector-12",
-    name: "Sector 12",
-    risk: "HIGH",
-    issue: "Blocked drain",
-    reportCount: 12,
-    unresolvedCount: 3,
-    lastReported: null,
-    position: [-6.5, 0, -2],
-    source: "demonstration",
-    reportIds: [],
-  },
-  {
-    id: "demo-sector-8",
-    name: "Sector 8",
-    risk: "MEDIUM",
-    issue: "Waterlogging",
-    reportCount: 6,
-    unresolvedCount: 4,
-    lastReported: null,
-    position: [5.5, 0, -4.5],
-    source: "demonstration",
-    reportIds: [],
-  },
-  {
-    id: "demo-sector-21",
-    name: "Sector 21",
-    risk: "LOW",
-    issue: "Drainage normal",
-    reportCount: 2,
-    unresolvedCount: 0,
-    lastReported: null,
-    position: [3.5, 0, 5.5],
-    source: "demonstration",
-    reportIds: [],
-  },
-];
+export const DEMONSTRATION_ZONES: CityZone[] = demoRiskZones;
 
 function riskFor(reports: MapReport[]): CityRiskLevel {
   const severe = reports.filter((report) => ["HIGH", "CRITICAL"].includes(report.severity)).length;

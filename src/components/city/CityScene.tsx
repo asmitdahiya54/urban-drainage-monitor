@@ -51,153 +51,303 @@ function HeatLayer({ zones, palette }: { zones: CityZone[]; palette: CityPalette
   );
 }
 
-const BUILDINGS = Array.from({ length: 94 }, (_, index) => {
-  const row = Math.floor(index / 10);
-  const col = index % 10;
-  const x = (col - 4.5) * 2.45 + Math.sin(index * 1.7) * 0.28;
-  const z = (row - 4) * 2.55 + Math.cos(index * 1.3) * 0.3;
-  const nearRoad = Math.abs(x) < 1.45 || Math.abs(z) < 1.5 || Math.abs(x - 7.2) < 1.1;
-  const height = nearRoad ? 1.1 + ((index * 7) % 4) * 0.45 : 2 + ((index * 13) % 12) * 0.48;
-  return { x, z, height, width: 1.15 + (index % 3) * 0.18, depth: 1.15 + ((index + 1) % 3) * 0.16 };
-}).filter((building) => Math.abs(building.x) > 1.2 && Math.abs(building.z) > 1.2);
+
+/* ---------- Procedural metropolis (deterministic) ---------- */
+function mulberry32(seed: number) {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const CITY_HALF = 64;
+const MAJOR = [-50, -31, -7.25, 4.75, 24, 44];
+const MAJOR_Z = [-47, -26, -7.4, 4.7, 22, 41];
+function withMinors(majors: number[]) {
+  const all: { at: number; major: boolean }[] = [];
+  const edges = [-CITY_HALF, ...majors, CITY_HALF];
+  for (let i = 0; i < edges.length - 1; i += 1) {
+    if (i > 0) all.push({ at: edges[i]!, major: true });
+    const gap = edges[i + 1]! - edges[i]!;
+    const minors = gap > 22 ? 2 : gap > 11 ? 1 : 0;
+    for (let m = 1; m <= minors; m += 1) {
+      all.push({ at: edges[i]! + (gap * m) / (minors + 1) + Math.sin(edges[i]! * 3.1 + m) * 1.1, major: false });
+    }
+  }
+  return all;
+}
+const ROADS_X = withMinors(MAJOR);
+const ROADS_Z = withMinors(MAJOR_Z);
+// Diagonal avenue for an organic, non-grid structure.
+const DIAG_A = new THREE.Vector2(-CITY_HALF, -40);
+const DIAG_B = new THREE.Vector2(CITY_HALF, 30);
+
+function roadWidth(major: boolean) {
+  return major ? 1.6 : 0.8;
+}
+function distToDiagonal(x: number, z: number) {
+  const ab = DIAG_B.clone().sub(DIAG_A);
+  const t = THREE.MathUtils.clamp(new THREE.Vector2(x, z).sub(DIAG_A).dot(ab) / ab.lengthSq(), 0, 1);
+  return new THREE.Vector2(x, z).distanceTo(DIAG_A.clone().add(ab.multiplyScalar(t)));
+}
+
+type Building = { x: number; z: number; w: number; d: number; h: number; tone: number; roof: boolean };
+
+function generateBuildings(): Building[] {
+  const rand = mulberry32(1207);
+  const xs = [{ at: -CITY_HALF, major: true }, ...ROADS_X, { at: CITY_HALF, major: true }];
+  const zs = [{ at: -CITY_HALF, major: true }, ...ROADS_Z, { at: CITY_HALF, major: true }];
+  const out: Building[] = [];
+  for (let i = 0; i < xs.length - 1; i += 1) {
+    for (let j = 0; j < zs.length - 1; j += 1) {
+      const x0 = xs[i]!.at + roadWidth(xs[i]!.major) / 2 + 0.55;
+      const x1 = xs[i + 1]!.at - roadWidth(xs[i + 1]!.major) / 2 - 0.55;
+      const z0 = zs[j]!.at + roadWidth(zs[j]!.major) / 2 + 0.55;
+      const z1 = zs[j + 1]!.at - roadWidth(zs[j + 1]!.major) / 2 - 0.55;
+      if (x1 - x0 < 1 || z1 - z0 < 1) continue;
+      const park = rand() < 0.05;
+      if (park) continue;
+      let x = x0;
+      while (x < x1 - 0.9) {
+        const w = Math.min(0.9 + rand() * 2.6, x1 - x);
+        let z = z0;
+        while (z < z1 - 0.9) {
+          const d = Math.min(0.9 + rand() * 2.6, z1 - z);
+          const cx = x + w / 2;
+          const cz = z + d / 2;
+          z += d + 0.3 + rand() * 0.35;
+          if (rand() < 0.08) continue;
+          if (distToDiagonal(cx, cz) < 1.9) continue;
+          const dist = Math.hypot(cx * 1.1, cz);
+          let h: number;
+          if (dist < 16) h = 2.2 + rand() * 4.5 + (rand() < 0.18 ? 3.5 : 0);
+          else if (dist < 34) h = 1 + rand() * 2.4 + (rand() < 0.08 ? 2.5 : 0);
+          else h = 0.4 + rand() * 1.3 + (rand() < 0.04 ? 1.5 : 0);
+          out.push({
+            x: cx,
+            z: cz,
+            w: w * (0.82 + rand() * 0.14),
+            d: d * (0.82 + rand() * 0.14),
+            h,
+            tone: rand(),
+            roof: h > 2.4 && rand() < 0.35,
+          });
+        }
+        x += w + 0.3 + rand() * 0.35;
+      }
+    }
+  }
+  return out;
+}
+const BUILDINGS = generateBuildings();
+
+function makeWindowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, 64, 128);
+  const rand = mulberry32(99);
+  for (let y = 4; y < 124; y += 6) {
+    for (let x = 4; x < 60; x += 7) {
+      const lit = rand();
+      if (lit < 0.45) continue;
+      const v = Math.floor(40 + lit * 150);
+      ctx.fillStyle = `rgb(${v},${v},${v})`;
+      ctx.fillRect(x, y, 4, 3);
+    }
+  }
+  // Soft vertical edge glow
+  ctx.fillStyle = "rgb(150,150,150)";
+  ctx.fillRect(0, 0, 1, 128);
+  ctx.fillRect(63, 0, 1, 128);
+  ctx.fillRect(0, 0, 64, 1);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function makeRadialTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d")!;
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(255,255,255,0.9)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.35)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(canvas);
+}
+let radialTexture: THREE.Texture | null = null;
+function getRadialTexture() {
+  radialTexture ??= makeRadialTexture();
+  return radialTexture;
+}
 
 const DRAINAGE_PATHS: [number, number, number][][] = [
-  [
-    [-13, 0.12, -6],
-    [-8, 0.12, -6],
-    [-4, 0.12, -2],
-    [0, 0.12, -2],
-    [4, 0.12, 2],
-    [13, 0.12, 2],
-  ],
-  [
-    [-10, 0.13, 10],
-    [-10, 0.13, 3],
-    [-6, 0.13, -1],
-    [-6, 0.13, -10],
-  ],
-  [
-    [0, 0.14, 12],
-    [0, 0.14, 6],
-    [4, 0.14, 2],
-    [8, 0.14, -2],
-    [8, 0.14, -11],
-  ],
-  [
-    [-13, 0.15, 6],
-    [-5, 0.15, 6],
-    [0, 0.15, 2],
-    [6, 0.15, 2],
-    [12, 0.15, -4],
-  ],
+  [[-13, 0.12, -6], [-8, 0.12, -6], [-4, 0.12, -2], [0, 0.12, -2], [4, 0.12, 2], [13, 0.12, 2]],
+  [[-10, 0.13, 10], [-10, 0.13, 3], [-6, 0.13, -1], [-6, 0.13, -10]],
+  [[0, 0.14, 12], [0, 0.14, 6], [4, 0.14, 2], [8, 0.14, -2], [8, 0.14, -11]],
+  [[-13, 0.15, 6], [-5, 0.15, 6], [0, 0.15, 2], [6, 0.15, 2], [12, 0.15, -4]],
 ];
+// Trunk mains follow the major roads; branches follow some minor streets.
+const DRAIN_MAINS: [number, number, number][][] = [
+  ...MAJOR.map((x) => [[x + 0.55, 0.1, -CITY_HALF], [x + 0.55, 0.1, CITY_HALF]] as [number, number, number][]),
+  ...MAJOR_Z.map((z) => [[-CITY_HALF, 0.1, z + 0.55], [CITY_HALF, 0.1, z + 0.55]] as [number, number, number][]),
+  [[DIAG_A.x, 0.1, DIAG_A.y], [DIAG_B.x, 0.1, DIAG_B.y]],
+];
+const DRAIN_BRANCHES: [number, number, number][][] = ROADS_X.filter((r, i) => !r.major && i % 2 === 0).map(
+  (r) => [[r.at, 0.09, -30], [r.at, 0.09, 30]] as [number, number, number][],
+).concat(
+  ROADS_Z.filter((r, i) => !r.major && i % 2 === 1).map(
+    (r) => [[-30, 0.09, r.at], [30, 0.09, r.at]] as [number, number, number][],
+  ),
+);
 
-function Buildings({ palette }: { palette: CityPalette }) {
+function Buildings({ palette, zones }: { palette: CityPalette; zones: CityZone[] }) {
   const solidRef = useRef<THREE.InstancedMesh>(null);
-  const edgeRef = useRef<THREE.InstancedMesh>(null);
+  const roofRef = useRef<THREE.InstancedMesh>(null);
+  const windowTexture = useMemo(() => makeWindowTexture(), []);
+  const buildings = useMemo(
+    () =>
+      BUILDINGS.flatMap((b) => {
+        let h = b.h;
+        for (const zone of zones) {
+          const d = Math.hypot(b.x - zone.position[0], b.z - zone.position[2]);
+          if (d < 2.3) return [];
+          if (d < 5.5) h = Math.min(h, 1.2 + d * 0.35);
+        }
+        return [{ ...b, h }];
+      }),
+    [zones],
+  );
+  const roofs = useMemo(() => buildings.filter((b) => b.roof), [buildings]);
 
   useEffect(() => {
     const dummy = new THREE.Object3D();
-    BUILDINGS.forEach((building, index) => {
-      dummy.position.set(building.x, building.height / 2, building.z);
-      dummy.scale.set(building.width, building.height, building.depth);
+    const base = new THREE.Color(palette.building);
+    const tint = new THREE.Color(palette.cyan);
+    const color = new THREE.Color();
+    buildings.forEach((b, index) => {
+      dummy.position.set(b.x, b.h / 2, b.z);
+      dummy.scale.set(b.w, b.h, b.d);
       dummy.updateMatrix();
       solidRef.current?.setMatrixAt(index, dummy.matrix);
-      edgeRef.current?.setMatrixAt(index, dummy.matrix);
+      color.copy(base).lerp(tint, b.tone * 0.18).multiplyScalar(0.75 + b.tone * 0.6);
+      solidRef.current?.setColorAt(index, color);
     });
-    if (solidRef.current) solidRef.current.instanceMatrix.needsUpdate = true;
-    if (edgeRef.current) edgeRef.current.instanceMatrix.needsUpdate = true;
-  }, []);
+    roofs.forEach((b, index) => {
+      dummy.position.set(b.x, b.h + 0.18, b.z);
+      dummy.scale.set(b.w * 0.45, 0.36, b.d * 0.45);
+      dummy.updateMatrix();
+      roofRef.current?.setMatrixAt(index, dummy.matrix);
+    });
+    if (solidRef.current) {
+      solidRef.current.count = buildings.length;
+      solidRef.current.instanceMatrix.needsUpdate = true;
+      if (solidRef.current.instanceColor) solidRef.current.instanceColor.needsUpdate = true;
+    }
+    if (roofRef.current) {
+      roofRef.current.count = roofs.length;
+      roofRef.current.instanceMatrix.needsUpdate = true;
+    }
+  }, [buildings, roofs, palette]);
 
   return (
     <group>
       <instancedMesh ref={solidRef} args={[undefined, undefined, BUILDINGS.length]}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshPhysicalMaterial
-          color={palette.building}
+        <meshStandardMaterial
+          color="#ffffff"
           emissive={palette.cyan}
-          emissiveIntensity={0.22}
-          metalness={0.72}
-          roughness={0.28}
-          transparent
-          opacity={0.72}
+          emissiveMap={windowTexture}
+          emissiveIntensity={0.85}
+          metalness={0.55}
+          roughness={0.38}
         />
       </instancedMesh>
-      <instancedMesh ref={edgeRef} args={[undefined, undefined, BUILDINGS.length]} scale={1.018}>
+      <instancedMesh ref={roofRef} args={[undefined, undefined, BUILDINGS.length]}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial color={palette.cyanBright} wireframe transparent opacity={0.22} />
+        <meshStandardMaterial color={palette.building} emissive={palette.cyan} emissiveIntensity={0.12} metalness={0.7} roughness={0.4} />
       </instancedMesh>
     </group>
   );
 }
 
 function Roads({ palette }: { palette: CityPalette }) {
-  const roads = [-7.25, -1.25, 4.75, 10.75];
+  const diagLen = DIAG_A.distanceTo(DIAG_B);
+  const diagAngle = Math.atan2(DIAG_B.y - DIAG_A.y, DIAG_B.x - DIAG_A.x);
   return (
     <group>
-      {roads.map((offset) => (
-        <group key={`road-x-${offset}`}>
-          <mesh position={[offset, 0.035, 0]}>
-            <boxGeometry args={[1.05, 0.05, 27]} />
-            <meshStandardMaterial color={palette.ground} metalness={0.4} roughness={0.65} />
+      {ROADS_X.map((road) => (
+        <group key={`rx-${road.at}`}>
+          <mesh position={[road.at, 0.03, 0]}>
+            <boxGeometry args={[roadWidth(road.major), 0.04, CITY_HALF * 2]} />
+            <meshStandardMaterial color={palette.ground} metalness={0.5} roughness={0.55} />
           </mesh>
-          <Line
-            points={[
-              [offset, 0.07, -13],
-              [offset, 0.07, 13],
-            ]}
-            color={palette.cyan}
-            lineWidth={0.55}
-            transparent
-            opacity={0.42}
-          />
+          {road.major && (
+            <Line points={[[road.at, 0.06, -CITY_HALF], [road.at, 0.06, CITY_HALF]]} color={palette.cyan} lineWidth={0.6} transparent opacity={0.4} />
+          )}
         </group>
       ))}
-      {[-7.4, -1.35, 4.7, 10.7].map((offset) => (
-        <group key={`road-z-${offset}`}>
-          <mesh position={[0, 0.04, offset]}>
-            <boxGeometry args={[27, 0.05, 1.05]} />
-            <meshStandardMaterial color={palette.ground} metalness={0.4} roughness={0.65} />
+      {ROADS_Z.map((road) => (
+        <group key={`rz-${road.at}`}>
+          <mesh position={[0, 0.032, road.at]}>
+            <boxGeometry args={[CITY_HALF * 2, 0.04, roadWidth(road.major)]} />
+            <meshStandardMaterial color={palette.ground} metalness={0.5} roughness={0.55} />
           </mesh>
-          <Line
-            points={[
-              [-13, 0.075, offset],
-              [13, 0.075, offset],
-            ]}
-            color={palette.cyan}
-            lineWidth={0.55}
-            transparent
-            opacity={0.42}
-          />
+          {road.major && (
+            <Line points={[[-CITY_HALF, 0.065, road.at], [CITY_HALF, 0.065, road.at]]} color={palette.cyan} lineWidth={0.6} transparent opacity={0.4} />
+          )}
         </group>
       ))}
+      <mesh position={[(DIAG_A.x + DIAG_B.x) / 2, 0.034, (DIAG_A.y + DIAG_B.y) / 2]} rotation-y={-diagAngle}>
+        <boxGeometry args={[diagLen, 0.04, 1.8]} />
+        <meshStandardMaterial color={palette.ground} metalness={0.5} roughness={0.55} />
+      </mesh>
+      <Line points={[[DIAG_A.x, 0.07, DIAG_A.y], [DIAG_B.x, 0.07, DIAG_B.y]]} color={palette.cyan} lineWidth={0.6} transparent opacity={0.4} />
     </group>
   );
 }
 
-function DrainageNetwork({
-  palette,
-  reducedMotion,
-}: {
-  palette: CityPalette;
-  reducedMotion: boolean;
-}) {
-  const flowRef = useRef<THREE.Group>(null);
-  useFrame((state, delta) => {
-    if (!flowRef.current || reducedMotion) return;
-    flowRef.current.position.y = 0.015 + Math.sin(state.clock.elapsedTime * 2) * 0.012;
-    flowRef.current.rotation.y += delta * 0.008;
+function DrainageNetwork({ palette, reducedMotion }: { palette: CityPalette; reducedMotion: boolean }) {
+  const flowRefs = useRef<(THREE.Material & { dashOffset?: number })[]>([]);
+  useFrame((_, delta) => {
+    if (reducedMotion) return;
+    for (const material of flowRefs.current) {
+      if (material && "dashOffset" in material) material.dashOffset = (material.dashOffset ?? 0) - delta * 1.4;
+    }
   });
+  const active = [...DRAINAGE_PATHS, ...DRAIN_MAINS.slice(2, 4), ...DRAIN_MAINS.slice(8, 10)];
   return (
-    <group ref={flowRef}>
-      {DRAINAGE_PATHS.map((points, index) => (
+    <group>
+      {DRAIN_BRANCHES.map((points, index) => (
+        <Line key={`b-${index}`} points={points} color={palette.cyan} lineWidth={0.9} transparent opacity={0.35} />
+      ))}
+      {DRAIN_MAINS.map((points, index) => (
+        <Line key={`m-${index}`} points={points} color={palette.cyanBright} lineWidth={1.4} transparent opacity={0.55} />
+      ))}
+      {active.map((points, index) => (
         <Line
-          key={index}
+          key={`a-${index}`}
+          ref={(line) => {
+            if (line) flowRefs.current[index] = line.material as THREE.Material;
+          }}
           points={points}
           color={palette.cyanBright}
-          lineWidth={2.1}
+          lineWidth={2.2}
+          dashed
+          dashSize={0.9}
+          gapSize={0.7}
           transparent
-          opacity={0.86}
+          opacity={0.9}
         />
       ))}
     </group>
@@ -251,6 +401,17 @@ function RiskBeacon({
         onSelect(zone);
       }}
     >
+      <mesh rotation-x={-Math.PI / 2} position-y={0.08} scale={selected ? 1.2 : 1}>
+        <planeGeometry args={[zone.risk === "HIGH" ? 11 : zone.risk === "MEDIUM" ? 8.5 : 6.5, zone.risk === "HIGH" ? 11 : zone.risk === "MEDIUM" ? 8.5 : 6.5]} />
+        <meshBasicMaterial
+          color={color}
+          map={getRadialTexture()}
+          transparent
+          opacity={0.55}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
       <mesh rotation-x={Math.PI / 2} position-y={0.12}>
         <torusGeometry args={[0.92, 0.055, 10, 44]} />
         <meshBasicMaterial color={color} transparent opacity={0.9} />
@@ -285,10 +446,10 @@ function RiskBeacon({
 function Particles({ palette, reducedMotion }: { palette: CityPalette; reducedMotion: boolean }) {
   const points = useRef<THREE.Points>(null);
   const positions = useMemo(() => {
-    const values = new Float32Array(260 * 3);
-    for (let index = 0; index < 260; index += 1) {
+    const values = new Float32Array(420 * 3);
+    for (let index = 0; index < 420; index += 1) {
       const angle = index * 2.399;
-      const radius = 5 + (index % 37) * 0.52;
+      const radius = 4 + (index % 37) * 1.3;
       values[index * 3] = Math.cos(angle) * radius;
       values[index * 3 + 1] = 0.6 + ((index * 17) % 110) / 10;
       values[index * 3 + 2] = Math.sin(angle) * radius;
@@ -328,7 +489,7 @@ function CameraController({
   reducedMotion: boolean;
 }) {
   const { camera } = useThree();
-  const targetPosition = useRef(new THREE.Vector3(18, 16, 22));
+  const targetPosition = useRef(new THREE.Vector3(16, 19, 20));
   const targetLook = useRef(new THREE.Vector3(0, 1.5, 0));
   const moving = useRef(false);
 
@@ -341,7 +502,7 @@ function CameraController({
 
   useEffect(() => {
     targetLook.current.set(0, 1.5, 0);
-    targetPosition.current.set(18, 16, 22);
+    targetPosition.current.set(16, 19, 20);
     moving.current = true;
   }, [resetNonce]);
 
@@ -368,24 +529,25 @@ export function CityScene(props: Props) {
   return (
     <>
       <color attach="background" args={[palette.background]} />
-      <fogExp2 attach="fog" args={[palette.background, 0.023]} />
+      <fogExp2 attach="fog" args={[palette.background, 0.021]} />
       <ambientLight intensity={0.52} color={palette.cyan} />
       <directionalLight position={[8, 18, 12]} intensity={1.1} color={palette.cyanBright} />
       <pointLight position={[-9, 8, -6]} intensity={35} distance={32} color={palette.cyan} />
+      <hemisphereLight args={[palette.cyanBright, palette.ground, 0.35]} />
 
       <mesh rotation-x={-Math.PI / 2} position-y={-0.06}>
-        <planeGeometry args={[42, 42]} />
-        <meshStandardMaterial color={palette.ground} metalness={0.65} roughness={0.52} />
+        <planeGeometry args={[220, 220]} />
+        <meshStandardMaterial color={palette.ground} metalness={0.8} roughness={0.35} />
       </mesh>
       <gridHelper
-        args={[40, 40, palette.cyan, palette.cyan]}
+        args={[140, 70, palette.cyan, palette.cyan]}
         position={[0, 0.005, 0]}
         material-transparent
-        material-opacity={0.12}
+        material-opacity={0.07}
       />
       {layers.roads !== false && <Roads palette={palette} />}
       {layers.heat === true && <HeatLayer zones={props.zones} palette={palette} />}
-      {layers.buildings && <Buildings palette={palette} />}
+      {layers.buildings && <Buildings palette={palette} zones={props.zones} />}
       {layers.drainage && <DrainageNetwork palette={palette} reducedMotion={props.reducedMotion} />}
       {layers.risk &&
         props.zones.map((zone) => (
@@ -428,15 +590,15 @@ export function CityScene(props: Props) {
         makeDefault
         enableDamping
         dampingFactor={0.075}
-        minDistance={10}
-        maxDistance={42}
+        minDistance={5}
+        maxDistance={58}
         minPolarAngle={0.48}
         maxPolarAngle={1.37}
         target={[0, 1.5, 0]}
       />
       <CameraController {...props} controlsRef={controlsRef} />
       <EffectComposer multisampling={0}>
-        <Bloom intensity={0.7} luminanceThreshold={0.4} luminanceSmoothing={0.5} mipmapBlur />
+        <Bloom intensity={0.75} luminanceThreshold={0.45} luminanceSmoothing={0.5} mipmapBlur />
         <Vignette offset={0.28} darkness={0.58} />
       </EffectComposer>
     </>

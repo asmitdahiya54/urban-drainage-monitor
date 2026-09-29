@@ -213,7 +213,7 @@ export default function CityExperience({
         >
           <Canvas
             dpr={[1, 1.5]}
-            camera={{ position: [18, 16, 22], fov: 43, near: 0.1, far: 120 }}
+            camera={{ position: [16, 19, 20], fov: 48, near: 0.1, far: 220 }}
             gl={{ antialias: true, powerPreference: "high-performance" }}
           >
             <CityScene

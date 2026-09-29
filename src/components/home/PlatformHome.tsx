@@ -8,7 +8,8 @@ import {
   Brain,
   CheckCircle2,
   ClipboardList,
-  CloudOff,
+  CloudSun,
+  Info,
   Compass,
   Construction,
   Droplets,
@@ -32,6 +33,18 @@ import { Switch } from "@/components/ui/switch";
 import type { CityData, CityLayers, CityZone } from "@/components/city/types";
 import { useAuth } from "@/context/AuthContext";
 import {
+  demoCityOverview,
+  demoCityStatus,
+  demoDrainageNetwork,
+  demoLiveFeed,
+  demoRiskPrediction,
+  demoWeather,
+  rainfallLevel,
+  type FeedItem,
+  type RiskPredictionData,
+  type WeatherData,
+} from "@/data/demoData";
+import {
   ISSUE_TYPE_LABELS,
   publicMapApi,
   RISK_DISCLAIMER,
@@ -49,16 +62,6 @@ function supportsWebGL() {
   } catch {
     return false;
   }
-}
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "Date unknown";
-  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
-  const mins = Math.round(diff / 60000);
-  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  return `${Math.round(hours / 24)} days ago`;
 }
 
 function feedTone(report: MapReport): "high" | "medium" | "low" {
@@ -104,20 +107,63 @@ function PanelTitle({ icon: Icon, children }: { icon: typeof Droplets; children:
   );
 }
 
+function DataBadge({ live }: { live: boolean }) {
+  return (
+    <span
+      className={`ml-auto rounded-full border px-2 py-0.5 text-[9px] font-semibold tracking-wider ${
+        live ? "border-risk-low/40 text-risk-low" : "border-risk-medium/40 text-risk-medium"
+      }`}
+    >
+      {live ? "LIVE DATA" : "DEMO DATA"}
+    </span>
+  );
+}
+
+function CountUp({ value, suffix = "" }: { value: number; suffix?: string }) {
+  const reduced = useReducedMotion();
+  const [shown, setShown] = useState(reduced ? value : 0);
+  useEffect(() => {
+    if (reduced) return setShown(value);
+    let frame = 0;
+    const start = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / 900);
+      setShown(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, reduced]);
+  return <>{shown}{suffix}</>;
+}
+
+const RISK_TONE = { HIGH: "high", MEDIUM: "medium", LOW: "low" } as const;
+const barTone = (v: number) => (v >= 65 ? "bg-risk-high" : v >= 45 ? "bg-risk-medium" : "bg-risk-low");
+
 function CityOverview({ data }: { data: CityData }) {
-  const live = data.source === "live";
+  const live = data.source === "live" && Boolean(data.summary);
+  const d = demoCityOverview;
+  const total = live ? data.summary!.total : d.total;
+  const critical = live ? data.summary!.high_severity : d.critical;
+  const resolved = live ? data.summary!.resolved : d.resolved;
   const inProgress = live
     ? data.reports.filter((r) => r.status === "IN_PROGRESS" || r.status === "ASSIGNED").length
-    : undefined;
+    : d.inProgress;
+  const open = total - resolved;
+  const rate = total ? Math.round((resolved / total) * 100) : 0;
+  const zones = live ? data.zones.length : d.highRiskZones;
   const stats = [
-    { label: "Total Issues", value: data.summary?.total, icon: ClipboardList, tone: "text-city-cyan bg-city-cyan/15" },
-    { label: "Critical", value: data.summary?.high_severity, icon: AlertOctagon, tone: "text-risk-high bg-risk-high/15" },
+    { label: "Total Issues", value: total, icon: ClipboardList, tone: "text-city-cyan bg-city-cyan/15" },
+    { label: "Critical", value: critical, icon: AlertOctagon, tone: "text-risk-high bg-risk-high/15" },
     { label: "In Progress", value: inProgress, icon: Construction, tone: "text-risk-medium bg-risk-medium/15" },
-    { label: "Resolved", value: data.summary?.resolved, icon: CheckCircle2, tone: "text-risk-low bg-risk-low/15" },
+    { label: "Resolved", value: resolved, icon: CheckCircle2, tone: "text-risk-low bg-risk-low/15" },
   ];
   return (
     <>
-      <PanelTitle icon={Activity}>City Overview</PanelTitle>
+      <div className="flex items-center gap-2">
+        <PanelTitle icon={Activity}>City Overview</PanelTitle>
+        <DataBadge live={live} />
+      </div>
       <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-4">
         {stats.map(({ label, value, icon: Icon, tone }) => (
           <div key={label} className="flex items-center gap-3">
@@ -126,180 +172,314 @@ function CityOverview({ data }: { data: CityData }) {
             </span>
             <div>
               <dt className="text-[11px] text-city-muted">{label}</dt>
-              <dd className="text-lg font-semibold leading-tight tabular-nums">
-                {value ?? "—"}
-              </dd>
+              <dd className="text-lg font-semibold leading-tight tabular-nums"><CountUp value={value} /></dd>
             </div>
           </div>
         ))}
       </dl>
-      {!live && (
-        <p className="mt-3 text-[11px] text-city-muted">Live totals unavailable right now.</p>
-      )}
+      <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-city-line/60 pt-3 text-center">
+        {[
+          { label: "Open Issues", value: open, suffix: "" },
+          { label: "Resolution", value: rate, suffix: "%" },
+          { label: "Risk Zones", value: zones, suffix: "" },
+        ].map((s) => (
+          <div key={s.label}>
+            <dt className="text-[10px] text-city-muted">{s.label}</dt>
+            <dd className="text-sm font-semibold tabular-nums"><CountUp value={s.value} suffix={s.suffix} /></dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-[10px] text-city-muted">
+        {live ? "Live public reports" : "Demo data • Updated just now"}
+      </p>
     </>
   );
 }
 
-function WeatherCard() {
+function WeatherCard({ weather = demoWeather }: { weather?: WeatherData }) {
+  const level = rainfallLevel(weather.rainfall);
+  const ring =
+    level === "heavy" ? "ring-1 ring-risk-high/50" : level === "moderate" ? "ring-1 ring-risk-medium/40" : "";
   return (
-    <div className="flex items-center gap-4">
-      <CloudOff className="size-9 shrink-0 text-city-cyan" />
-      <div>
-        <p className="dash-label">Live Weather</p>
-        <p className="mt-1 text-sm font-semibold">Weather data unavailable</p>
-        <p className="text-[11px] text-city-muted">No weather service is connected yet.</p>
+    <div className={`-m-1 rounded-lg p-1 ${ring}`}>
+      <div className="flex items-center gap-4">
+        <CloudSun className="size-10 shrink-0 text-city-cyan" />
+        <div>
+          <p className="dash-label flex items-center gap-2">
+            {weather.location}
+            {weather.isDemo && (
+              <span className="rounded-full border border-risk-medium/40 px-1.5 text-[9px] text-risk-medium">DEMO</span>
+            )}
+          </p>
+          <p className="mt-0.5 text-2xl font-semibold tabular-nums">{weather.temperature}°C</p>
+          <p className="text-[11px] text-city-muted">{weather.condition}</p>
+        </div>
+        <dl className="ml-auto grid grid-cols-3 gap-x-4 gap-y-1 text-center">
+          {[
+            ["Humidity", `${weather.humidity}%`],
+            ["Rainfall", `${weather.rainfall} mm`],
+            ["Wind", `${weather.windSpeed} km/h`],
+            ["Rain prob.", `${weather.rainProbability}%`],
+            ["Visibility", `${weather.visibility} km`],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-[10px] text-city-muted">{label}</dt>
+              <dd className="text-xs font-semibold tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      <dl className="ml-auto hidden gap-5 text-center sm:flex">
-        {["Humidity", "Rainfall", "Wind"].map((label) => (
-          <div key={label}>
-            <dt className="text-[11px] text-city-muted">{label}</dt>
-            <dd className="mt-1 text-sm font-semibold">—</dd>
-          </div>
-        ))}
-      </dl>
+      <p className={`mt-2 text-[10px] ${level === "low" ? "text-city-muted" : level === "heavy" ? "text-risk-high" : "text-risk-medium"}`}>
+        {level === "heavy" ? "Heavy rainfall warning" : level === "moderate" ? "Moderate rainfall — elevated drainage watch" : "Normal conditions"}
+        {weather.isDemo && " · Demo weather data, not actual current weather"}
+      </p>
     </div>
   );
 }
 
-function RiskPrediction({ risk, error }: { risk: PublicRiskAreas | null; error: boolean }) {
+function RiskPrediction({ risk }: { risk: PublicRiskAreas | null }) {
   const areas = risk?.areas ?? [];
-  const high = areas.filter((a) => a.risk_level === "HIGH").length;
-  const pct = areas.length ? Math.round((high / areas.length) * 100) : null;
-  const top = [...areas].sort((a, b) => b.risk_score - a.risk_score).slice(0, 5);
+  const live = areas.length > 0;
+  let p: RiskPredictionData = demoRiskPrediction;
+  if (live) {
+    const avg = areas.reduce((s, a) => s + a.risk_score, 0) / areas.length;
+    const score = Math.round(avg <= 1 ? avg * 100 : avg);
+    p = {
+      riskScore: score,
+      riskLevel: score >= 70 ? "HIGH" : score >= 40 ? "MEDIUM" : "LOW",
+      highRiskZones: areas.filter((a) => a.risk_level === "HIGH").length,
+      mediumRiskZones: areas.filter((a) => a.risk_level === "MEDIUM").length,
+      lowRiskZones: areas.filter((a) => a.risk_level === "LOW").length,
+      factors: [],
+      predictionTime: new Date().toISOString(),
+      isDemo: false,
+    };
+  }
+  const tone = RISK_TONE[p.riskLevel];
   const radius = 42;
   const circ = 2 * Math.PI * radius;
+  const stroke = tone === "high" ? "stroke-risk-high" : tone === "medium" ? "stroke-risk-medium" : "stroke-risk-low";
   return (
     <>
       <div className="flex items-start gap-3">
         <Brain className="mt-0.5 size-6 text-city-cyan" />
         <div>
           <h2 className="text-sm font-semibold">Drainage Risk Prediction</h2>
-          <p className="text-[11px] text-city-muted">Prototype analysis of crowdsourced report data</p>
+          <p className="text-[11px] text-city-muted">Prototype AI Prediction</p>
+        </div>
+        <DataBadge live={live} />
+      </div>
+      <div className="mt-3 flex items-center gap-4">
+        <div className="relative size-24 shrink-0">
+          <svg viewBox="0 0 100 100" className="size-full -rotate-90">
+            <circle cx="50" cy="50" r={radius} className="fill-none stroke-city-line" strokeWidth="8" />
+            <motion.circle
+              cx="50" cy="50" r={radius}
+              className={`fill-none ${stroke}`}
+              strokeWidth="8" strokeLinecap="round" strokeDasharray={circ}
+              initial={{ strokeDashoffset: circ }}
+              animate={{ strokeDashoffset: circ * (1 - p.riskScore / 100) }}
+              transition={{ duration: 1 }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-xl font-semibold tabular-nums">{p.riskScore}</span>
+            <span className="text-[10px] text-city-muted">/ 100</span>
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 text-xs">
+          <p className="text-[11px] text-city-muted">Overall risk</p>
+          <p className={`text-base font-semibold ${TONE_TEXT[tone]}`}>{p.riskLevel}</p>
+          <p className="mt-1 text-[11px] text-city-muted">
+            {p.highRiskZones + p.mediumRiskZones + p.lowRiskZones} flood-prone zones
+          </p>
+          <div className="mt-1 flex gap-2 text-[11px]">
+            <span className="text-risk-high">{p.highRiskZones} High</span>
+            <span className="text-risk-medium">{p.mediumRiskZones} Med</span>
+            <span className="text-risk-low">{p.lowRiskZones} Low</span>
+          </div>
         </div>
       </div>
-      {areas.length === 0 ? (
-        <p className="mt-5 text-sm text-city-muted">
-          {error ? "Risk prediction unavailable right now." : "No risk predictions yet."}
-        </p>
-      ) : (
-        <div className="mt-4 flex items-center gap-5">
-          <div className="relative size-28 shrink-0">
-            <svg viewBox="0 0 100 100" className="size-full -rotate-90">
-              <circle cx="50" cy="50" r={radius} className="fill-none stroke-city-line" strokeWidth="8" />
-              <circle
-                cx="50"
-                cy="50"
-                r={radius}
-                className="fill-none stroke-risk-high"
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={circ}
-                strokeDashoffset={circ * (1 - (pct ?? 0) / 100)}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[11px] text-city-muted">High Risk</span>
-              <span className="text-2xl font-semibold tabular-nums">{pct}%</span>
-            </div>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold text-city-muted">Top Risk Areas</p>
-            <ol className="mt-2 space-y-1.5 text-xs">
-              {top.map((area, i) => {
-                const tone = area.risk_level === "HIGH" ? "high" : area.risk_level === "MEDIUM" ? "medium" : "low";
-                return (
-                  <li key={`${area.latitude}-${area.longitude}`} className="flex items-center gap-2">
-                    <span className="flex size-4 items-center justify-center rounded-full bg-city-surface text-[10px]">
-                      {i + 1}
-                    </span>
-                    <span className="truncate tabular-nums">
-                      {area.latitude.toFixed(3)}, {area.longitude.toFixed(3)}
-                    </span>
-                    <span className={`ml-auto shrink-0 ${TONE_TEXT[tone]}`}>
-                      {area.risk_level.charAt(0) + area.risk_level.slice(1).toLowerCase()}
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-        </div>
+      {p.factors.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {p.factors.map((f) => (
+            <li key={f.label} className="flex items-center gap-2 text-[11px]">
+              <span className="w-32 text-city-muted">{f.label}</span>
+              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-city-surface">
+                <span className={`block h-full rounded-full ${barTone(f.value)}`} style={{ width: `${f.value}%` }} />
+              </span>
+              <span className="w-8 text-right tabular-nums">{f.value}%</span>
+            </li>
+          ))}
+        </ul>
       )}
-      <p className="mt-3 text-[10px] leading-snug text-city-muted">{RISK_DISCLAIMER}</p>
+      <p className="mt-2 text-[10px] leading-snug text-city-muted">
+        {p.isDemo
+          ? "Demo prediction based on simulated drainage, rainfall and crowd-report data. Risk increases with rainfall intensity, blockage and waterlogging reports, and historical issue density. "
+          : ""}
+        {RISK_DISCLAIMER}
+      </p>
     </>
   );
 }
 
+function agoLabel(mins: number) {
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.round(mins / 60);
+  return `${h} hr${h === 1 ? "" : "s"} ago`;
+}
+
+function liveToFeed(r: MapReport): FeedItem {
+  const tone = feedTone(r);
+  return {
+    id: String(r.id),
+    issue: ISSUE_TYPE_LABELS[r.issue_type] ?? r.issue_type,
+    location: `Report #${r.id}`,
+    risk: tone === "high" ? "HIGH" : tone === "medium" ? "MEDIUM" : "LOW",
+    minutesAgo: r.created_at ? Math.max(0, Math.round((Date.now() - new Date(r.created_at).getTime()) / 60000)) : 0,
+    status: STATUS_LABELS[r.status],
+    isDemo: false,
+  };
+}
+
 function LiveFeed({ reports }: { reports: MapReport[] }) {
-  const recent = useMemo(
+  const live = reports.length > 0;
+  const reduced = useReducedMotion();
+  const base = useMemo(
     () =>
-      [...reports]
-        .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-        .slice(0, 4),
-    [reports],
+      live
+        ? [...reports]
+            .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+            .slice(0, 5)
+            .map(liveToFeed)
+        : demoLiveFeed,
+    [reports, live],
   );
+  // Demo feed: gently rotate items in from the top to simulate activity.
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {
+    if (live || reduced) return;
+    const t = window.setInterval(() => setOffset((o) => (o + 1) % base.length), 6000);
+    return () => window.clearInterval(t);
+  }, [live, reduced, base.length]);
+  const items = live ? base : [...base.slice(base.length - offset), ...base.slice(0, base.length - offset)].slice(0, 4);
+  const [selected, setSelected] = useState<FeedItem | null>(null);
+
   return (
     <>
-      <PanelTitle icon={Radio}>Live Feed</PanelTitle>
-      {recent.length === 0 ? (
-        <p className="mt-4 text-sm text-city-muted">No recent reports</p>
+      <div className="flex items-center gap-2">
+        <PanelTitle icon={Radio}>Live Feed</PanelTitle>
+        <span className={`ml-auto rounded-full border px-2 py-0.5 text-[9px] font-semibold tracking-wider ${live ? "border-risk-low/40 text-risk-low" : "border-risk-medium/40 text-risk-medium"}`}>
+          {live ? "LIVE DATA" : "DEMO LIVE FEED"}
+        </span>
+      </div>
+      {selected ? (
+        <div className="mt-3 rounded-lg border border-city-line/60 bg-city/50 p-3 text-xs">
+          <div className="flex items-start justify-between">
+            <p className="font-semibold">{selected.issue}</p>
+            <button type="button" aria-label="Close report details" onClick={() => setSelected(null)} className="text-city-muted hover:text-city-foreground">
+              <X className="size-3.5" />
+            </button>
+          </div>
+          <dl className="mt-2 grid grid-cols-2 gap-1.5">
+            <dt className="text-city-muted">Location</dt><dd>{selected.location}</dd>
+            <dt className="text-city-muted">Risk</dt><dd className={TONE_TEXT[RISK_TONE[selected.risk]]}>{selected.risk.charAt(0) + selected.risk.slice(1).toLowerCase()}</dd>
+            <dt className="text-city-muted">Reported</dt><dd>{agoLabel(selected.minutesAgo)}</dd>
+            <dt className="text-city-muted">Status</dt><dd>{selected.status}</dd>
+          </dl>
+          {selected.isDemo && <p className="mt-2 text-[10px] text-risk-medium">Demo report — not a real citizen submission</p>}
+          <Link to="/map" className="mt-2 inline-flex items-center gap-1 font-semibold text-city-cyan hover:text-city-cyan-bright">
+            View on Map <ArrowRight className="size-3" />
+          </Link>
+        </div>
       ) : (
         <ul className="mt-3 space-y-2">
-          <AnimatePresence initial={false}>
-            {recent.map((report) => {
-              const tone = feedTone(report);
+          {items.map((item) => {
+              const tone = RISK_TONE[item.risk];
               const Icon = tone === "low" ? CheckCircle2 : tone === "high" ? AlertOctagon : Droplets;
               return (
-                <motion.li
-                  key={report.id}
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-3 rounded-lg border border-city-line/60 bg-city/50 px-3 py-2"
-                >
-                  <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${TONE_BG[tone]} ${TONE_TEXT[tone]}`}>
-                    <Icon className="size-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium">
-                      {ISSUE_TYPE_LABELS[report.issue_type] ?? report.issue_type} ·{" "}
-                      {STATUS_LABELS[report.status]}
-                    </p>
-                    <p className="text-[11px] text-city-muted">
-                      Report #{report.id} · {timeAgo(report.created_at)}
-                    </p>
-                  </div>
+                <motion.li key={item.id} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(item)}
+                    className="flex w-full items-center gap-3 rounded-lg border border-city-line/60 bg-city/50 px-3 py-2 text-left transition-colors hover:border-city-cyan/50"
+                  >
+                    <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${TONE_BG[tone]} ${TONE_TEXT[tone]}`}>
+                      <Icon className="size-3.5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{item.issue} · {item.location}</span>
+                      <span className="block text-[11px] text-city-muted">{agoLabel(item.minutesAgo)}</span>
+                    </span>
+                    <span className={`shrink-0 text-[10px] font-semibold ${TONE_TEXT[tone]}`}>{item.risk}</span>
+                  </button>
                 </motion.li>
               );
             })}
-          </AnimatePresence>
         </ul>
       )}
     </>
   );
 }
 
-const NETWORK = [
-  { label: "Main Pipes", value: 98, bar: "bg-city-cyan" },
-  { label: "Secondary Pipes", value: 87, bar: "bg-city-cyan-bright" },
-  { label: "Flow Capacity", value: 76, bar: "bg-risk-medium" },
-];
-
 function DrainageNetworkCard() {
+  const n = demoDrainageNetwork;
   return (
     <>
-      <PanelTitle icon={Droplets}>Underground Drainage Network</PanelTitle>
-      <ul className="mt-3 space-y-2.5">
-        {NETWORK.map((row) => (
-          <li key={row.label} className="flex items-center gap-3 text-xs">
-            <span className="w-28 text-city-muted">{row.label}</span>
-            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-city-surface">
-              <span className={`block h-full rounded-full ${row.bar}`} style={{ width: `${row.value}%` }} />
+      <div className="flex items-center gap-2">
+        <PanelTitle icon={Droplets}>Underground Drainage Network</PanelTitle>
+        <DataBadge live={false} />
+      </div>
+      <dl className="mt-3 grid grid-cols-5 gap-1 text-center">
+        {[
+          ["Coverage", `${n.coverage}%`, ""],
+          ["Monitored", n.monitored, ""],
+          ["Healthy", n.healthy, "text-risk-low"],
+          ["Warning", n.warning, "text-risk-medium"],
+          ["Critical", n.critical, "text-risk-high"],
+        ].map(([label, value, tone]) => (
+          <div key={label as string}>
+            <dt className="text-[10px] text-city-muted">{label}</dt>
+            <dd className={`text-sm font-semibold tabular-nums ${tone}`}>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-city-surface">
+        <span className="bg-risk-low" style={{ width: `${n.healthyPct}%` }} />
+        <span className="bg-risk-medium" style={{ width: `${n.warningPct}%` }} />
+        <span className="bg-risk-high" style={{ width: `${n.criticalPct}%` }} />
+      </div>
+      <div className="mt-1.5 flex justify-between text-[10px] text-city-muted">
+        <span>Healthy {n.healthyPct}%</span><span>Warning {n.warningPct}%</span><span>Critical {n.criticalPct}%</span>
+      </div>
+      <p className="mt-2 text-[10px] text-city-muted">Demo infrastructure data — no pipe sensors connected.</p>
+    </>
+  );
+}
+
+function CityStatusCard() {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <PanelTitle icon={ShieldCheck}>City Status</PanelTitle>
+        <span
+          title="Some dashboard values are simulated for demonstration. Live integrations will replace these values when connected."
+          className="ml-auto flex cursor-help items-center gap-1 rounded-full border border-risk-medium/40 px-2 py-0.5 text-[9px] font-semibold tracking-wider text-risk-medium"
+        >
+          <Info className="size-3" /> DEMO MODE
+        </span>
+      </div>
+      <ul className="mt-3 space-y-1.5 text-xs">
+        {demoCityStatus.map((s) => (
+          <li key={s.label} className="flex items-center justify-between">
+            <span className="text-city-muted">{s.label}</span>
+            <span className={`flex items-center gap-1.5 font-medium ${TONE_TEXT[s.tone]}`}>
+              <span className={`size-1.5 rounded-full ${s.tone === "low" ? "bg-risk-low" : "bg-risk-medium"}`} />
+              {s.value}
             </span>
-            <span className="w-9 text-right tabular-nums">{row.value}%</span>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[10px] text-city-muted">Sample values — no pipe sensors connected.</p>
     </>
   );
 }
@@ -358,7 +538,6 @@ export function PlatformHome({ data }: { data: CityData }) {
   const [heading, setHeading] = useState(0);
   const controls = useRef<OrbitControlsImpl | null>(null);
   const [risk, setRisk] = useState<PublicRiskAreas | null>(null);
-  const [riskError, setRiskError] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   useEffect(() => {
@@ -375,7 +554,7 @@ export function PlatformHome({ data }: { data: CityData }) {
     publicMapApi
       .riskAreas()
       .then((r) => active && setRisk(r))
-      .catch(() => active && setRiskError(true));
+      .catch(() => active && setRisk(null));
     return () => {
       active = false;
     };
@@ -514,14 +693,15 @@ export function PlatformHome({ data }: { data: CityData }) {
       <SiteNav variant="dashboard" />
       <main className="flex-1">
         {/* Desktop: city as centerpiece with floating panels */}
-        <section className="relative hidden h-[calc(100svh-4.5rem)] min-h-[46rem] overflow-hidden lg:block" aria-label="City intelligence dashboard">
+        <section className="relative hidden min-h-[calc(100svh-4.5rem)] overflow-hidden lg:block" aria-label="City intelligence dashboard">
           <div className="absolute inset-0">{isDesktop === true && cityCanvas}</div>
           <div className="pointer-events-none absolute inset-0 bg-dash-vignette" />
-          <div className="pointer-events-none absolute inset-0 mx-auto grid max-w-[92rem] grid-cols-[25rem_1fr_22rem] gap-4 p-4">
+          <div className="pointer-events-none relative mx-auto grid min-h-[calc(100svh-4.5rem)] max-w-[92rem] grid-cols-[25rem_1fr_22rem] gap-4 p-4">
             <div className="flex flex-col gap-3">
               <div className="pointer-events-auto">{hero}</div>
               <Panel delay={0.1} label="City overview"><CityOverview data={data} /></Panel>
               <div className="mt-auto flex flex-col gap-5">
+                <Panel delay={0.2} label="City status"><CityStatusCard /></Panel>
                 <Panel delay={0.25} label="Underground drainage network"><DrainageNetworkCard /></Panel>
               </div>
             </div>
@@ -534,8 +714,8 @@ export function PlatformHome({ data }: { data: CityData }) {
                 <Panel delay={0.35} className="w-full max-w-2xl" label="Quick actions">{actionBar}</Panel>
               </div>
             </div>
-            <div className="flex flex-col gap-3 overflow-hidden">
-              <Panel delay={0.1} label="Drainage risk prediction"><RiskPrediction risk={risk} error={riskError} /></Panel>
+            <div className="flex flex-col gap-3">
+              <Panel delay={0.1} label="Drainage risk prediction"><RiskPrediction risk={risk} /></Panel>
               <Panel delay={0.2} label="Live feed"><LiveFeed reports={data.reports} /></Panel>
               <Panel delay={0.3} label="3D map layers">{layersCard}</Panel>
               <div className="pointer-events-auto mt-auto flex justify-end">{controlsCard}</div>
@@ -555,12 +735,13 @@ export function PlatformHome({ data }: { data: CityData }) {
               </div>
             )}
           </div>
-          <Panel label="Drainage risk prediction"><RiskPrediction risk={risk} error={riskError} /></Panel>
+          <Panel label="Drainage risk prediction"><RiskPrediction risk={risk} /></Panel>
           <Panel label="City overview"><CityOverview data={data} /></Panel>
           <Panel label="Live weather"><WeatherCard /></Panel>
           <Panel label="Live feed"><LiveFeed reports={data.reports} /></Panel>
           <Panel label="3D map layers">{layersCard}</Panel>
           <Panel label="Underground drainage network"><DrainageNetworkCard /></Panel>
+          <Panel label="City status"><CityStatusCard /></Panel>
           <Panel label="Quick actions">{actionBar}</Panel>
         </div>
 
