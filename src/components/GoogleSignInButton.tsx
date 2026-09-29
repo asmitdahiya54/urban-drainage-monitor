@@ -7,8 +7,15 @@ import { ApiError } from "@/services/api";
 type GoogleId = {
   accounts: {
     id: {
-      initialize: (opts: { client_id: string; callback: (r: { credential: string }) => void }) => void;
-      prompt: () => void;
+      initialize: (opts: {
+        client_id: string;
+        callback: (r: { credential: string }) => void;
+        ux_mode?: "popup" | "redirect";
+        auto_select?: boolean;
+        use_fedcm_for_button?: boolean;
+        use_fedcm_for_prompt?: boolean;
+      }) => void;
+      renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
     };
   };
 };
@@ -48,42 +55,66 @@ export function GoogleSignInButton({ label = "Continue with Google" }: { label?:
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const initialized = useRef(false);
+  const [ready, setReady] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const loginRef = useRef(loginWithGoogle);
+  loginRef.current = loginWithGoogle;
 
   useEffect(() => {
-    if (clientId) loadGis().catch(() => undefined);
-  }, []);
+    if (!clientId) return;
+    let cancelled = false;
 
-  async function handleClick() {
-    setError(null);
-    if (!clientId) {
-      setError("Google sign-in is not set up yet. Please use email and password for now.");
-      return;
+    async function handleGoogleCredential(response: { credential: string }) {
+      const credential = response.credential;
+      setBusy(true);
+      setError(null);
+      try {
+        const user = await loginRef.current(credential);
+        navigate({ to: user.role === "admin" ? "/admin" : "/dashboard", replace: true });
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : "Google sign-in failed. Please try again.");
+      } finally {
+        setBusy(false);
+      }
     }
-    try {
-      await loadGis();
-      const google = (window as unknown as { google?: GoogleId }).google;
-      if (!google) throw new Error("load");
-      if (!initialized.current) {
+
+    loadGis()
+      .then(() => {
+        const google = (window as unknown as { google?: GoogleId }).google;
+        const el = overlayRef.current;
+        if (cancelled || !google || !el) return;
+        // Button-only popup flow: no One Tap, no auto sign-in, no FedCM.
         google.accounts.id.initialize({
           client_id: clientId,
-          callback: async ({ credential }) => {
-            setBusy(true);
-            try {
-              const user = await loginWithGoogle(credential);
-              navigate({ to: user.role === "admin" ? "/admin" : "/dashboard", replace: true });
-            } catch (e) {
-              setError(e instanceof ApiError ? e.message : "Google sign-in failed. Please try again.");
-            } finally {
-              setBusy(false);
-            }
-          },
+          callback: handleGoogleCredential,
+          ux_mode: "popup",
+          auto_select: false,
+          use_fedcm_for_button: false,
+          use_fedcm_for_prompt: false,
         });
-        initialized.current = true;
-      }
-      google.accounts.id.prompt();
-    } catch {
-      setError("Could not reach Google. Check your connection and try again.");
+        el.innerHTML = "";
+        google.accounts.id.renderButton(el, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          text: "continue_with",
+          width: Math.min(400, Math.max(200, Math.round(el.offsetWidth || 320))),
+        });
+        setReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Could not reach Google. Check your connection and try again.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  function handleFallbackClick() {
+    if (!clientId) {
+      setError("Google sign-in is not set up yet. Please use email and password for now.");
+    } else if (!ready) {
+      setError("Google sign-in is still loading. Please try again in a moment.");
     }
   }
 
@@ -92,15 +123,27 @@ export function GoogleSignInButton({ label = "Continue with Google" }: { label?:
       <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
       </div>
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={busy}
-        className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:border-primary hover:bg-secondary disabled:opacity-60"
-      >
-        <GoogleG />
-        {busy ? "Signing in…" : label}
-      </button>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={handleFallbackClick}
+          disabled={busy}
+          tabIndex={ready ? -1 : 0}
+          className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:border-primary hover:bg-secondary disabled:opacity-60"
+        >
+          <GoogleG />
+          {busy ? "Signing in…" : label}
+        </button>
+        {/* Official Google button, invisible, stretched over the styled button to handle the click. */}
+        <div
+          ref={overlayRef}
+          aria-label={label}
+          className={`absolute inset-0 flex items-center justify-center overflow-hidden opacity-0 [&_iframe]:!w-full [&>div]:w-full ${
+            ready && !busy ? "" : "pointer-events-none"
+          }`}
+          style={{ transform: "scale(1.02)" }}
+        />
+      </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
