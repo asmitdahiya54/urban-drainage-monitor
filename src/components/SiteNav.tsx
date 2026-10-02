@@ -53,7 +53,7 @@ export function SiteNav({ variant = "default" }: { variant?: "default" | "dashbo
     logout();
     setOpen(false);
     setMenuOpen(false);
-    navigate({ to: "/", replace: true });
+    navigate({ to: "/login", replace: true });
   }
 
   const dash = variant === "dashboard";

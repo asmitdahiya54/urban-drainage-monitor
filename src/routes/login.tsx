@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNav } from "@/components/SiteNav";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/services/api";
+import { DEMO_AUTH_ENABLED } from "@/lib/demoAuth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -111,6 +112,33 @@ function LoginPage() {
             <SubmitButton loading={submitting}>Login</SubmitButton>
           </form>
           <GoogleSignInButton label="Continue with Google" />
+          {DEMO_AUTH_ENABLED && (
+            <div className="mt-5 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs text-muted-foreground">
+              <p className="font-semibold text-primary">Demo mode — not production sign-in</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("citizen@demo.local");
+                    setPassword("Citizen@123");
+                  }}
+                  className="rounded-md border border-border px-2.5 py-1 hover:border-primary hover:text-foreground"
+                >
+                  Fill citizen demo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("admin@demo.local");
+                    setPassword("Admin@123");
+                  }}
+                  className="rounded-md border border-border px-2.5 py-1 hover:border-primary hover:text-foreground"
+                >
+                  Fill admin demo
+                </button>
+              </div>
+            </div>
+          )}
         </AuthCard>
       </main>
       <SiteFooter />

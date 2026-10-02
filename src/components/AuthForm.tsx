@@ -1,5 +1,6 @@
 /** Shared presentation pieces for the login and registration forms. */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 export function AuthCard({
   title,
@@ -45,24 +46,38 @@ export function Field({
   placeholder?: string | undefined;
   disabled?: boolean | undefined;
 }) {
+  const [visible, setVisible] = useState(false);
+  const isPassword = type === "password";
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-medium">
         {label}
       </label>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        disabled={disabled}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${id}-error` : undefined}
-        className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:opacity-60"
-      />
+      <div className="relative">
+        <input
+          id={id}
+          name={id}
+          type={isPassword && visible ? "text" : type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          disabled={disabled}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className={`w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:opacity-60 ${isPassword ? "pr-10" : ""}`}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            aria-label={visible ? "Hide password" : "Show password"}
+            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        )}
+      </div>
       {error && (
         <p id={`${id}-error`} className="text-xs font-medium text-destructive">
           {error}

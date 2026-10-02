@@ -16,6 +16,18 @@ import {
 } from "react";
 
 import { ApiError, authApi, getStoredToken, setStoredToken, type AuthUser } from "@/services/api";
+import {
+  DEMO_AUTH_ENABLED,
+  DemoAuthError,
+  demoLogin,
+  demoRegister,
+  demoUserFromToken,
+  isDemoToken,
+} from "@/lib/demoAuth";
+
+function backendDown(error: unknown) {
+  return error instanceof ApiError && (error.status === 0 || error.status >= 500);
+}
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -41,6 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const stored = getStoredToken();
     if (!stored) {
+      setLoading(false);
+      return;
+    }
+    if (isDemoToken(stored)) {
+      const demoUser = DEMO_AUTH_ENABLED ? demoUserFromToken(stored) : null;
+      if (demoUser) {
+        setUser(demoUser);
+        setToken(stored);
+      } else setStoredToken(null);
       setLoading(false);
       return;
     }
@@ -72,8 +93,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const data = await authApi.login({ email, password });
-      return adopt(data.access_token, data.user);
+      if (DEMO_AUTH_ENABLED) {
+        try {
+          const demo = demoLogin(email, password);
+          return adopt(demo.access_token, demo.user);
+        } catch {
+          /* not a demo account — try the real backend */
+        }
+      }
+      try {
+        const data = await authApi.login({ email, password });
+        return adopt(data.access_token, data.user);
+      } catch (error) {
+        if (DEMO_AUTH_ENABLED && backendDown(error))
+          throw new ApiError("Incorrect email or password (demo mode — server offline).", 401);
+        throw error;
+      }
     },
     [adopt],
   );
@@ -88,8 +123,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (name: string, email: string, password: string) => {
-      const data = await authApi.register({ name, email, password });
-      return adopt(data.access_token, data.user);
+      try {
+        const data = await authApi.register({ name, email, password });
+        return adopt(data.access_token, data.user);
+      } catch (error) {
+        if (!(DEMO_AUTH_ENABLED && backendDown(error))) throw error;
+        try {
+          const demo = demoRegister(name, email, password);
+          return adopt(demo.access_token, demo.user);
+        } catch (demoError) {
+          const e = demoError as DemoAuthError;
+          throw new ApiError(e.message, 409, e.field);
+        }
+      }
     },
     [adopt],
   );
