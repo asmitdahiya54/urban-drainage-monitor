@@ -114,7 +114,37 @@ def seed_data(reset: bool = False) -> dict:
     return {"users": len(users), "reports": created}
 
 
+TEST_ACCOUNTS = [
+    {"name": "Demo Citizen", "email": "citizen.demo@urbanmonitor.test", "role": UserRole.CITIZEN, "password": "Citizen@12345"},
+    {"name": "Demo Admin", "email": "admin.demo@urbanmonitor.test", "role": UserRole.ADMIN, "password": "Admin@12345"},
+]
+
+
+def create_demo_accounts() -> list[dict]:
+    """Create or refresh the two dedicated test accounts. Repeatable; touches no other rows."""
+    results = []
+    for spec in TEST_ACCOUNTS:
+        user = User.query.filter_by(email=spec["email"]).first()
+        action = "updated"
+        if user is None:
+            user = User(name=spec["name"], email=spec["email"], role=spec["role"])
+            db.session.add(user)
+            action = "created"
+        user.name = spec["name"]
+        user.role = spec["role"]
+        user.set_password(spec["password"])
+        results.append({"email": spec["email"], "role": spec["role"].value, "action": action})
+    db.session.commit()
+    return results
+
+
 def register_cli(app: Flask) -> None:
+    @app.cli.command("create-demo-accounts")
+    def create_demo_accounts_command() -> None:
+        """Create/refresh the dedicated citizen and admin demo accounts."""
+        for row in create_demo_accounts():
+            click.echo(f"{row['action']}: {row['email']} ({row['role']})")
+
     @app.cli.command("seed")
     @click.option("--reset", is_flag=True, help="Delete existing demo rows first.")
     def seed_command(reset: bool) -> None:
