@@ -1,43 +1,8 @@
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { useAuth } from "@/context/AuthContext";
-import { ApiError } from "@/services/api";
-
-type GoogleId = {
-  accounts: {
-    id: {
-      initialize: (opts: {
-        client_id: string;
-        callback: (r: { credential: string }) => void;
-        ux_mode?: "popup" | "redirect";
-        auto_select?: boolean;
-        use_fedcm_for_button?: boolean;
-        use_fedcm_for_prompt?: boolean;
-      }) => void;
-      renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
-    };
-  };
+type GoogleSignInButtonProps = {
+  label?: string;
 };
-
-const clientId = import.meta.env["VITE_GOOGLE_CLIENT_ID"] as string | undefined;
-let scriptPromise: Promise<void> | null = null;
-
-function loadGis(): Promise<void> {
-  if (scriptPromise) return scriptPromise;
-  scriptPromise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://accounts.google.com/gsi/client";
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => {
-      scriptPromise = null;
-      reject(new Error("load"));
-    };
-    document.head.appendChild(s);
-  });
-  return scriptPromise;
-}
 
 function GoogleG() {
   return (
@@ -50,72 +15,20 @@ function GoogleG() {
   );
 }
 
-export function GoogleSignInButton({ label = "Continue with Google" }: { label?: string }) {
-  const { loginWithGoogle } = useAuth();
-  const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const loginRef = useRef(loginWithGoogle);
-  loginRef.current = loginWithGoogle;
+/**
+ * Presentational "Continue with Google" button.
+ *
+ * The previous Google Identity Services integration (script loading, popup
+ * init, invisible-button overlay) has been removed for a clean restart.
+ * Re-wire it here when the OAuth client ID and the Flask
+ * POST /api/auth/google flow are configured — `authApi.google` and
+ * `loginWithGoogle` in AuthContext are still in place for that.
+ */
+export function GoogleSignInButton({ label = "Continue with Google" }: GoogleSignInButtonProps) {
+  const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!clientId) return;
-    let cancelled = false;
-
-    async function handleGoogleCredential(response: { credential: string }) {
-      const credential = response.credential;
-      setBusy(true);
-      setError(null);
-      try {
-        const user = await loginRef.current(credential);
-        navigate({ to: user.role === "admin" ? "/admin" : "/dashboard", replace: true });
-      } catch (e) {
-        setError(e instanceof ApiError ? e.message : "Google sign-in failed. Please try again.");
-      } finally {
-        setBusy(false);
-      }
-    }
-
-    loadGis()
-      .then(() => {
-        const google = (window as unknown as { google?: GoogleId }).google;
-        const el = overlayRef.current;
-        if (cancelled || !google || !el) return;
-        // Button-only popup flow: no One Tap, no auto sign-in, no FedCM.
-        google.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleGoogleCredential,
-          ux_mode: "popup",
-          auto_select: false,
-          use_fedcm_for_button: false,
-          use_fedcm_for_prompt: false,
-        });
-        el.innerHTML = "";
-        google.accounts.id.renderButton(el, {
-          type: "standard",
-          theme: "outline",
-          size: "large",
-          text: "continue_with",
-          width: Math.min(400, Math.max(200, Math.round(el.offsetWidth || 320))),
-        });
-        setReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Could not reach Google. Check your connection and try again.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [navigate]);
-
-  function handleFallbackClick() {
-    if (!clientId) {
-      setError("Google sign-in is not set up yet. Please use email and password for now.");
-    } else if (!ready) {
-      setError("Google sign-in is still loading. Please try again in a moment.");
-    }
+  function handleClick() {
+    setNotice("Google sign-in is not connected yet. Please use email and password for now.");
   }
 
   return (
@@ -123,28 +36,15 @@ export function GoogleSignInButton({ label = "Continue with Google" }: { label?:
       <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
       </div>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={handleFallbackClick}
-          disabled={busy}
-          tabIndex={ready ? -1 : 0}
-          className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:border-primary hover:bg-secondary disabled:opacity-60"
-        >
-          <GoogleG />
-          {busy ? "Signing in…" : label}
-        </button>
-        {/* Official Google button, invisible, stretched over the styled button to handle the click. */}
-        <div
-          ref={overlayRef}
-          aria-label={label}
-          className={`absolute inset-0 flex items-center justify-center overflow-hidden opacity-0 [&_iframe]:!w-full [&>div]:w-full ${
-            ready && !busy ? "" : "pointer-events-none"
-          }`}
-          style={{ transform: "scale(1.02)" }}
-        />
-      </div>
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      <button
+        type="button"
+        onClick={handleClick}
+        className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:border-primary hover:bg-secondary"
+      >
+        <GoogleG />
+        {label}
+      </button>
+      {notice && <p className="mt-2 text-xs text-muted-foreground">{notice}</p>}
     </div>
   );
 }

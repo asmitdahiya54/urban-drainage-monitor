@@ -497,6 +497,9 @@ flask --app backend.app db upgrade
 ```bash
 flask --app backend.app seed
 flask --app backend.app seed --reset   # wipe demo rows and re-insert
+flask --app backend.app create-demo-accounts   # repeatable: Demo Citizen + Demo Admin test accounts
+# citizen.demo@urbanmonitor.test / Citizen@12345 (citizen)
+# admin.demo@urbanmonitor.test   / Admin@12345   (admin, assigned server-side only)
 ```
 
 This creates 1 admin, 2 citizens, and 10 fictional drainage reports with mixed
