@@ -1,0 +1,28 @@
+/* Marker pin used by MapCanvas (Leaflet's default marker relies on image URLs). */
+.udm-pin__dot {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 3px solid var(--background);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 40%, transparent);
+}
+
+/* Severity colouring for the public map markers. */
+.udm-pin--low .udm-pin__dot {
+  background: #0ea5e9;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #0ea5e9 40%, transparent);
+}
+.udm-pin--medium .udm-pin__dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #f59e0b 40%, transparent);
+}
+.udm-pin--high .udm-pin__dot {
+  background: #f97316;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #f97316 40%, transparent);
+}
+.udm-pin--critical .udm-pin__dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #dc2626 40%, transparent);
+}
