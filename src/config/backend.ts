@@ -11,10 +11,8 @@
  * Local development: set BACKEND_URL=http://127.0.0.1:5000 to use a local Flask
  * server instead (clear PRODUCTION_BACKEND_ORIGIN to make local the default).
  */
-export const PRODUCTION_BACKEND_ORIGIN = "https://urban-drainage-monitor.onrender.com";
-
-export const LOCAL_BACKEND_ORIGIN = "http://127.0.0.1:5000";
-
+export const PRODUCTION_BACKEND_ORIGIN = "";
+export const LOCAL_BACKEND_ORIGIN = "http://127.0.0.1:8765";
 /** Resolve the Flask origin the proxy should target (server-side only). */
 export function resolveBackendOrigin(): string {
   const fromEnv = typeof process !== "undefined" ? process.env?.["BACKEND_URL"] : undefined;
