@@ -137,14 +137,8 @@ export type AuthUser = {
 export type AuthResponse = { access_token: string; user: AuthUser };
 
 export const authApi = {
-  register: (input: { name: string; email: string; password: string }) =>
-    apiRequest<AuthResponse>("/auth/register", { method: "POST", body: input }),
-
-  login: (input: { email: string; password: string }) =>
-    apiRequest<AuthResponse>("/auth/login", { method: "POST", body: input }),
-
   google: (credential: string) =>
-    apiRequest<{ access_token: string; user: AuthUser }>("/auth/google", {
+    apiRequest<AuthResponse>("/auth/google", {
       method: "POST",
       body: { credential },
     }),

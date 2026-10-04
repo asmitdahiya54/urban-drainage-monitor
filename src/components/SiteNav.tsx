@@ -154,20 +154,12 @@ export function SiteNav({ variant = "default" }: { variant?: "default" | "dashbo
               )}
             </div>
           ) : (
-            <>
-              <Link
-                to="/login"
-                className="rounded-md px-3 py-2 text-sm font-medium opacity-80 hover:opacity-100"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className="rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
-              >
-                Create Account
-              </Link>
-            </>
+            <Link
+              to="/login"
+              className="rounded-full border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-primary-foreground"
+            >
+              Sign in
+            </Link>
           )}
         </div>
 
@@ -223,26 +215,15 @@ export function SiteNav({ variant = "default" }: { variant?: "default" | "dashbo
               </li>
             </>
           ) : (
-            <>
-              <li>
-                <Link
-                  to="/login"
-                  onClick={() => setOpen(false)}
-                  className="block rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-                >
-                  Login
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/register"
-                  onClick={() => setOpen(false)}
-                  className="block rounded-md px-2 py-2.5 text-sm font-semibold text-primary"
-                >
-                  Create Account
-                </Link>
-              </li>
-            </>
+            <li>
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-2 py-2.5 text-sm font-semibold text-primary"
+              >
+                Sign in
+              </Link>
+            </li>
           )}
         </ul>
       )}

@@ -1,13 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { AuthCard, Field, FormAlert, SubmitButton } from "@/components/AuthForm";
+import { AuthCard } from "@/components/AuthForm";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNav } from "@/components/SiteNav";
 import { useAuth } from "@/context/AuthContext";
-import { ApiError } from "@/services/api";
-import { DEMO_AUTH_ENABLED } from "@/lib/demoAuth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -31,114 +29,25 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { login, isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  // Already signed in? Don't show the form.
+  // Already signed in? Continue to the role-appropriate dashboard.
   useEffect(() => {
     if (!loading && isAuthenticated) {
       navigate({ to: user?.role === "admin" ? "/admin" : "/dashboard", replace: true });
     }
   }, [loading, isAuthenticated, user, navigate]);
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    const nextErrors: { email?: string; password?: string } = {};
-    if (!email.trim()) nextErrors.email = "Email is required";
-    if (!password) nextErrors.password = "Password is required";
-    setErrors(nextErrors);
-    setFormError(null);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    setSubmitting(true);
-    try {
-      const signedIn = await login(email, password);
-      navigate({ to: signedIn.role === "admin" ? "/admin" : "/dashboard", replace: true });
-    } catch (error) {
-      setFormError(
-        error instanceof ApiError ? error.message : "Something went wrong. Please try again.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
     <div className="flex min-h-screen flex-col">
       <SiteNav />
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:py-20">
         <AuthCard
-          title="Sign in"
-          subtitle="Urban Drainage Monitor — residents and municipal staff."
-          footer={
-            <>
-              Don&apos;t have an account?{" "}
-              <Link to="/register" className="font-semibold text-primary hover:underline">
-                Create account
-              </Link>
-            </>
-          }
+          title="Sign in to Drainage Watch"
+          subtitle="Use your Google account to access your dashboard."
         >
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {formError && <FormAlert tone="error">{formError}</FormAlert>}
-            <Field
-              id="email"
-              label="Email"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              error={errors.email}
-              autoComplete="email"
-              placeholder="you@example.com"
-              disabled={submitting}
-            />
-            <Field
-              id="password"
-              label="Password"
-              type="password"
-              value={password}
-              onChange={setPassword}
-              error={errors.password}
-              autoComplete="current-password"
-              placeholder="••••••••"
-              disabled={submitting}
-            />
-            <SubmitButton loading={submitting}>Login</SubmitButton>
-          </form>
           <GoogleSignInButton label="Continue with Google" />
-          {DEMO_AUTH_ENABLED && (
-            <div className="mt-5 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs text-muted-foreground">
-              <p className="font-semibold text-primary">Demo mode — not production sign-in</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail("citizen@demo.local");
-                    setPassword("Citizen@123");
-                  }}
-                  className="rounded-md border border-border px-2.5 py-1 hover:border-primary hover:text-foreground"
-                >
-                  Fill citizen demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail("admin@demo.local");
-                    setPassword("Admin@123");
-                  }}
-                  className="rounded-md border border-border px-2.5 py-1 hover:border-primary hover:text-foreground"
-                >
-                  Fill admin demo
-                </button>
-              </div>
-            </div>
-          )}
         </AuthCard>
       </main>
       <SiteFooter />

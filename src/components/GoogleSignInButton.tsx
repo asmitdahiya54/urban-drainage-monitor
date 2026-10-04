@@ -79,7 +79,7 @@ function GoogleG() {
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 503) {
-      return "Google sign-in isn't available on the server right now. Please try again later or use email and password.";
+      return "Google sign-in isn't available on the server right now. Please try again later.";
     }
     if (error.status === 401) return "Google sign-in could not be verified. Please try again.";
     return error.message || "Google sign-in failed. Please try again.";
@@ -98,7 +98,7 @@ function messageFor(error: unknown): string {
 export function GoogleSignInButton({ label = "Continue with Google" }: GoogleSignInButtonProps) {
   const { loginWithGoogle } = useAuth();
   const clientId = GOOGLE_CLIENT_ID;
-  const configured = Boolean(clientId) && !clientId!.startsWith("your_");
+  const configured = clientId.length > 0 && !clientId.startsWith("your_");
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -116,7 +116,7 @@ export function GoogleSignInButton({ label = "Continue with Google" }: GoogleSig
       .then((api) => {
         if (cancelled || !overlayRef.current) return;
         api.initialize({
-          client_id: clientId!,
+          client_id: clientId,
           ux_mode: "popup",
           auto_select: false,
           cancel_on_tap_outside: true,
@@ -148,7 +148,8 @@ export function GoogleSignInButton({ label = "Continue with Google" }: GoogleSig
         setReady(true);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Could not load Google sign-in");
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Could not load Google sign-in");
       });
     return () => {
       cancelled = true;
@@ -159,9 +160,6 @@ export function GoogleSignInButton({ label = "Continue with Google" }: GoogleSig
 
   return (
     <div>
-      <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
-      </div>
       <div ref={wrapperRef} className="relative">
         <button
           type="button"
@@ -171,7 +169,11 @@ export function GoogleSignInButton({ label = "Continue with Google" }: GoogleSig
           className="flex w-full items-center justify-center gap-3 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:border-primary hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60"
         >
           <GoogleG />
-          {busy ? "Signing in with Google…" : configured && !ready && !error ? "Loading Google…" : label}
+          {busy
+            ? "Signing in with Google…"
+            : configured && !ready && !error
+              ? "Loading Google…"
+              : label}
         </button>
         {configured && (
           <div
@@ -186,7 +188,7 @@ export function GoogleSignInButton({ label = "Continue with Google" }: GoogleSig
       {!configured && (
         <p role="alert" className="mt-2 text-xs text-destructive">
           Google sign-in isn't configured: the Google Client ID (VITE_GOOGLE_CLIENT_ID) is missing.
-          Please use email and password for now.
+          Please contact the site administrator.
         </p>
       )}
       {configured && error && (
