@@ -1,0 +1,40 @@
+/* Marker pin used by MapCanvas (Leaflet's default marker relies on image URLs). */
+.udm-pin__dot {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 3px solid var(--background);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 40%, transparent);
+}
+
+/* Severity colouring for the public map markers. */
+.udm-pin--low .udm-pin__dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #22c55e 40%, transparent);
+}
+.udm-pin--medium .udm-pin__dot {
+  background: #eab308;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #eab308 40%, transparent);
+}
+.udm-pin--high .udm-pin__dot {
+  background: #f97316;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #f97316 40%, transparent);
+}
+.udm-pin--critical .udm-pin__dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #dc2626 40%, transparent);
+}
+
+/* Selected marker on the Issues Map. */
+.udm-pin--selected .udm-pin__dot {
+  transform: scale(1.35);
+  outline: 3px solid var(--foreground);
+}
+
+/* Maintenance work markers: diamond shape. */
+.udm-pin[class*="udm-pin--work-"] .udm-pin__dot { border-radius: 4px; transform: rotate(45deg) scale(0.85); }
+.udm-pin--work-scheduled .udm-pin__dot { background: #38bdf8; }
+.udm-pin--work-inprogress .udm-pin__dot { background: #a855f7; }
+.udm-pin--work-completed .udm-pin__dot { background: #22c55e; }

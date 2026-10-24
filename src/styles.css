@@ -1,0 +1,324 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Urban Drainage Monitor design system.
+ * Civic-tech palette: deep navy ink, water teal primary, warm amber accent.
+ * All colors MUST use oklch format.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-city: var(--city);
+  --color-city-foreground: var(--city-foreground);
+  --color-city-muted: var(--city-muted);
+  --color-city-panel: var(--city-panel);
+  --color-city-surface: var(--city-surface);
+  --color-city-line: var(--city-line);
+  --color-city-cyan: var(--city-cyan);
+  --color-city-cyan-bright: var(--city-cyan-bright);
+  --color-risk-high: var(--risk-high);
+  --color-risk-medium: var(--risk-medium);
+  --color-risk-low: var(--risk-low);
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --shadow-card: 0 1px 2px oklch(0.25 0.05 240 / 0.06), 0 12px 32px oklch(0.25 0.05 240 / 0.08);
+  --shadow-raised: 0 18px 48px oklch(0.45 0.12 210 / 0.22);
+  --shadow-city: 0 24px 70px oklch(0.02 0.03 245 / 0.48), 0 0 28px oklch(0.78 0.14 210 / 0.1);
+  --shadow-glow: 0 0 24px oklch(0.72 0.14 205 / 0.24);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.006 220);
+  --foreground: oklch(0.24 0.045 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.045 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.045 250);
+  --primary: oklch(0.55 0.115 215);
+  --primary-foreground: oklch(0.99 0.005 220);
+  --secondary: oklch(0.94 0.018 220);
+  --secondary-foreground: oklch(0.3 0.05 245);
+  --muted: oklch(0.955 0.012 220);
+  --muted-foreground: oklch(0.52 0.028 245);
+  --accent: oklch(0.78 0.14 75);
+  --accent-foreground: oklch(0.26 0.05 250);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.99 0.005 220);
+  --border: oklch(0.9 0.015 225);
+  --input: oklch(0.9 0.015 225);
+  --ring: oklch(0.55 0.115 215);
+  --surface: oklch(0.24 0.05 250);
+  --surface-foreground: oklch(0.97 0.01 220);
+  --city: oklch(0.105 0.026 248);
+  --city-foreground: oklch(0.96 0.014 215);
+  --city-muted: oklch(0.7 0.035 225);
+  --city-panel: oklch(0.16 0.036 245);
+  --city-surface: oklch(0.22 0.045 238);
+  --city-line: oklch(0.68 0.11 210 / 0.3);
+  --city-cyan: oklch(0.72 0.14 210);
+  --city-cyan-bright: oklch(0.86 0.115 200);
+  --risk-high: oklch(0.66 0.23 25);
+  --risk-medium: oklch(0.82 0.16 80);
+  --risk-low: oklch(0.76 0.17 155);
+  --city-render-background: #050b14;
+  --city-render-ground: #081827;
+  --city-render-cyan: #168fb5;
+  --city-render-cyan-bright: #70e6ff;
+  --city-render-building: #16304b;
+  --city-render-high: #ff475d;
+  --city-render-medium: #ffc857;
+  --city-render-low: #43e49b;
+}
+
+.dark {
+  --background: oklch(0.19 0.035 250);
+  --foreground: oklch(0.97 0.008 220);
+  --card: oklch(0.24 0.04 250);
+  --card-foreground: oklch(0.97 0.008 220);
+  --popover: oklch(0.24 0.04 250);
+  --popover-foreground: oklch(0.97 0.008 220);
+  --primary: oklch(0.72 0.12 205);
+  --primary-foreground: oklch(0.18 0.035 250);
+  --secondary: oklch(0.29 0.04 250);
+  --secondary-foreground: oklch(0.97 0.008 220);
+  --muted: oklch(0.29 0.04 250);
+  --muted-foreground: oklch(0.72 0.025 240);
+  --accent: oklch(0.78 0.14 75);
+  --accent-foreground: oklch(0.2 0.04 250);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.98 0.005 220);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.72 0.12 205);
+  --surface: oklch(0.16 0.03 250);
+  --surface-foreground: oklch(0.97 0.008 220);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: 0;
+  }
+}
+
+@utility grid-backdrop {
+  background-image:
+    linear-gradient(to right, oklch(0.55 0.115 215 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.55 0.115 215 / 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+@utility bg-city-grid {
+  background-color: var(--color-city);
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--color-city-cyan) 9%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--color-city-cyan) 9%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 48px 48px;
+}
+
+@utility bg-city-scan {
+  background-image: linear-gradient(to bottom, transparent 50%, oklch(0 0 0 / 0.06) 50%);
+  background-size: 100% 4px;
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Homepage intelligence dashboard */
+:root {
+  --dash: oklch(0.14 0.03 250);
+  --dash-deep: oklch(0.11 0.025 252);
+  --dash-panel: oklch(0.17 0.035 245 / 0.82);
+  --dash-border: oklch(0.62 0.12 240 / 0.28);
+  --dash-blue: oklch(0.62 0.2 255);
+  --dash-cyan: oklch(0.76 0.15 220);
+}
+
+@utility bg-dash {
+  background-color: var(--dash-deep);
+  background-image:
+    radial-gradient(ellipse at 50% 0%, var(--dash) 0%, transparent 65%),
+    linear-gradient(to right, color-mix(in oklab, var(--dash-cyan) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--dash-cyan) 5%, transparent) 1px, transparent 1px);
+  background-size: auto, 56px 56px, 56px 56px;
+}
+
+@utility bg-dash-vignette {
+  background:
+    linear-gradient(to right, var(--dash-deep) 0%, transparent 26%, transparent 74%, var(--dash-deep) 100%),
+    linear-gradient(to bottom, transparent 70%, var(--dash-deep) 100%);
+  opacity: 0.8;
+}
+
+@utility dash-panel {
+  border: 1px solid var(--dash-border);
+  background: var(--dash-panel);
+  backdrop-filter: blur(14px);
+  border-radius: 0.85rem;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 18px 50px oklch(0.05 0.03 250 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.04);
+}
+
+@utility dash-label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--city-muted);
+}
+
+@utility text-gradient-city {
+  background: linear-gradient(90deg, var(--dash-blue), var(--dash-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility dash-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.7rem 1.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--city-foreground);
+  background: linear-gradient(90deg, var(--dash-blue), var(--dash-cyan));
+  box-shadow: 0 0 24px color-mix(in oklab, var(--dash-blue) 45%, transparent);
+  transition: filter 0.2s, transform 0.2s;
+  &:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+}
+
+@utility dash-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.7rem 1.3rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--city-foreground);
+  border: 1px solid var(--dash-border);
+  background: oklch(0.15 0.03 250 / 0.6);
+  transition: border-color 0.2s, background 0.2s;
+  &:hover {
+    border-color: var(--dash-cyan);
+    background: oklch(0.2 0.05 240 / 0.7);
+  }
+}
+
+@utility dash-round {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--dash-border);
+  background: var(--dash-panel);
+  color: var(--city-foreground);
+  backdrop-filter: blur(10px);
+  transition: border-color 0.2s, color 0.2s;
+  &:hover {
+    border-color: var(--dash-cyan);
+    color: var(--dash-cyan);
+  }
+}
+
+.city-marker-label {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  text-align: left;
+  color: var(--city-foreground);
+  background: oklch(0.2 0.05 245 / 0.85);
+  border: 1px solid var(--dash-border);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.city-marker-label[data-risk="HIGH"] {
+  background: color-mix(in oklab, var(--risk-high) 30%, oklch(0.15 0.04 250 / 0.85));
+  border-color: color-mix(in oklab, var(--risk-high) 70%, transparent);
+  animation: marker-pulse 2.4s ease-in-out infinite;
+}
+.city-marker-label[data-risk="MEDIUM"] {
+  background: color-mix(in oklab, var(--risk-medium) 26%, oklch(0.15 0.04 250 / 0.85));
+  border-color: color-mix(in oklab, var(--risk-medium) 70%, transparent);
+}
+.city-marker-label[data-risk="LOW"] {
+  background: color-mix(in oklab, var(--risk-low) 22%, oklch(0.15 0.04 250 / 0.85));
+  border-color: color-mix(in oklab, var(--risk-low) 60%, transparent);
+}
+.city-marker-title { font-size: 0.75rem; font-weight: 600; }
+.city-marker-sub { font-size: 0.625rem; opacity: 0.75; }
+@keyframes marker-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--risk-high) 45%, transparent); }
+  50% { box-shadow: 0 0 18px 2px color-mix(in oklab, var(--risk-high) 45%, transparent); }
+}
