@@ -128,7 +128,7 @@ def test_tampered_and_missing_tokens_are_rejected(client):
 
 def test_token_signed_with_another_secret_is_rejected(client):
     """A JWT minted with a different key must never be accepted."""
-    other = create_app(type("OtherConfig", (TestConfig,), {"JWT_SECRET_KEY": "attacker-key"}))
+    other = create_app(type("OtherConfig", (TestConfig,), {"JWT_SECRET_KEY": "test-secret-key-for-jwt-signing-123456"}))
     with other.app_context():
         from flask_jwt_extended import create_access_token
 
