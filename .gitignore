@@ -38,8 +38,11 @@ venv/
 .venv/
 .pytest_cache/
 
-# Environment
+
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
 
 # Python bytecode (explicit)
 *.pyc
