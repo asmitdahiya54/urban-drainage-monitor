@@ -657,6 +657,104 @@ export function PlatformHome({ data }: { data: CityData }) {
   const [heading, setHeading] = useState(0);
   const controls = useRef<OrbitControlsImpl | null>(null);
   const [risk, setRisk] = useState<PublicRiskAreas | null>(null);
+  const [weather, setWeather] = useState<WeatherData>(demoWeather);
+
+useEffect(() => {
+  let active = true;
+
+  const fetchWeather = async () => {
+    try {
+      const params = new URLSearchParams({
+        latitude: "28.2470",
+        longitude: "77.0650",
+        current: [
+          "temperature_2m",
+          "relative_humidity_2m",
+          "precipitation",
+          "weather_code",
+          "wind_speed_10m",
+        ].join(","),
+        hourly: "precipitation_probability,visibility",
+        forecast_days: "1",
+        timezone: "Asia/Kolkata",
+      });
+
+      const response = await fetch(
+        `https://api.open-meteo.com/v1/forecast?${params}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Weather service unavailable");
+      }
+
+      const result = await response.json();
+
+      const current = result.current;
+      const hourly = result.hourly;
+
+      const hourIndex = hourly.time.indexOf(current.time);
+
+      const weatherConditions: Record<number, string> = {
+        0: "Clear sky",
+        1: "Mainly clear",
+        2: "Partly cloudy",
+        3: "Overcast",
+        45: "Fog",
+        48: "Depositing rime fog",
+        51: "Light drizzle",
+        53: "Moderate drizzle",
+        55: "Dense drizzle",
+        61: "Slight rain",
+        63: "Moderate rain",
+        65: "Heavy rain",
+        71: "Slight snowfall",
+        73: "Moderate snowfall",
+        75: "Heavy snowfall",
+        80: "Rain showers",
+        81: "Moderate rain showers",
+        82: "Violent rain showers",
+        95: "Thunderstorm",
+        96: "Thunderstorm with hail",
+        99: "Severe thunderstorm with hail",
+      };
+
+      if (active) {
+        setWeather({
+          location: "Sohna, Haryana",
+          temperature: Math.round(current.temperature_2m),
+          condition:
+            weatherConditions[current.weather_code] ?? "Unknown conditions",
+          humidity: current.relative_humidity_2m,
+          rainfall: current.precipitation,
+          windSpeed: current.wind_speed_10m,
+          rainProbability:
+            hourIndex >= 0
+              ? hourly.precipitation_probability[hourIndex] ?? 0
+              : 0,
+          visibility:
+            hourIndex >= 0
+              ? Number(
+                  (hourly.visibility[hourIndex] / 1000).toFixed(1)
+                )
+              : 0,
+          timestamp: current.time,
+          isDemo: false,
+        });
+      }
+    } catch (error) {
+      console.error("Live weather fetch failed:", error);
+    }
+  };
+
+  fetchWeather();
+
+  const interval = window.setInterval(fetchWeather, 10 * 60 * 1000);
+
+  return () => {
+    active = false;
+    window.clearInterval(interval);
+  };
+}, []);
 
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   useEffect(() => {
@@ -875,7 +973,7 @@ export function PlatformHome({ data }: { data: CityData }) {
             </div>
             <div className="flex flex-col items-center justify-between">
               <Panel delay={0.15} className="w-full max-w-lg" label="Live weather">
-                <WeatherCard />
+                <WeatherCard weather={weather} />
               </Panel>
               <div className="flex flex-col items-center gap-4">
                 <AnimatePresence>
@@ -922,7 +1020,7 @@ export function PlatformHome({ data }: { data: CityData }) {
             <CityOverview data={data} />
           </Panel>
           <Panel label="Live weather">
-            <WeatherCard />
+            <WeatherCard weather={weather} />
           </Panel>
           <Panel label="Live feed">
             <LiveFeed reports={data.reports} />
