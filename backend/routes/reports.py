@@ -7,6 +7,7 @@ Security model (never trust the client):
 """
 
 import logging
+from threading import active_count
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
@@ -34,6 +35,15 @@ from ..utils.validators import ValidationError
 logger = logging.getLogger(__name__)
 
 reports_bp = Blueprint("reports", __name__, url_prefix="/api/reports")
+MAX_ACTIVE_REPORTS = 3
+
+ACTIVE_REPORT_STATUSES = (
+    ReportStatus.NEW,
+    ReportStatus.PENDING_VERIFICATION,
+    ReportStatus.VERIFIED,
+    ReportStatus.ASSIGNED,
+    ReportStatus.IN_PROGRESS,
+)
 
 
 def _reporter(report: Report) -> dict | None:
@@ -67,6 +77,18 @@ def create_report():
     user = current_user()
     if user is None:
         return jsonify({"error": "Authentication required"}), 401
+    active_count = Report.query.filter(
+    Report.user_id == user.id,
+    Report.status.in_(ACTIVE_REPORT_STATUSES),
+).count()
+
+    if active_count >= MAX_ACTIVE_REPORTS:
+        return jsonify({
+        "error": "You have reached the limit of 3 active reports. Please wait until an existing report is resolved or rejected.",
+        "active_reports": active_count,
+        "limit": MAX_ACTIVE_REPORTS,
+    }), 429
+    
 
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
