@@ -2,9 +2,9 @@ import { ClientOnly, Link } from "@tanstack/react-router";
 import {
   Activity,
   AlertOctagon,
-  ArrowRight,
   BarChart3,
   Box,
+ArrowRight,
   Brain,
   CheckCircle2,
   ClipboardList,
@@ -13,7 +13,6 @@ import {
   Compass,
   Construction,
   Droplets,
-  Layers3,
   Leaf,
   Minus,
   PenSquare,
@@ -29,7 +28,6 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNav } from "@/components/SiteNav";
-import { Switch } from "@/components/ui/switch";
 import type { CityData, CityLayers, CityZone } from "@/components/city/types";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -589,14 +587,7 @@ function CityStatusCard() {
   );
 }
 
-type LayerKey = "drainage" | "risk" | "heat" | "buildings" | "roads";
-const LAYER_ROWS: { key: LayerKey; label: string }[] = [
-  { key: "drainage", label: "Drainage Network" },
-  { key: "risk", label: "Issue Markers" },
-  { key: "heat", label: "Risk Heatmap" },
-  { key: "buildings", label: "Building Footprints" },
-  { key: "roads", label: "Roads & Water Bodies" },
-];
+
 
 function ZoneCard({ zone, onClose }: { zone: CityZone; onClose: () => void }) {
   const tone = zone.risk === "HIGH" ? "high" : zone.risk === "MEDIUM" ? "medium" : "low";
@@ -654,7 +645,6 @@ export function PlatformHome({ data }: { data: CityData }) {
   const [selectedZone, setSelectedZone] = useState<CityZone | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
   const [resetNonce, setResetNonce] = useState(0);
-  const [heading, setHeading] = useState(0);
   const controls = useRef<OrbitControlsImpl | null>(null);
   const [risk, setRisk] = useState<PublicRiskAreas | null>(null);
   const [weather, setWeather] = useState<WeatherData>(demoWeather);
@@ -778,11 +768,8 @@ useEffect(() => {
   }, []);
 
   const onControlsReady = useCallback((c: OrbitControlsImpl | null) => {
-    controls.current = c;
-    if (!c) return;
-    const update = () => setHeading((c.getAzimuthalAngle() * 180) / Math.PI);
-    c.addEventListener("change", update);
-  }, []);
+  controls.current = c;
+}, []);
 
   const zoom = (factor: number) => {
     const c = controls.current;
@@ -793,7 +780,7 @@ useEffect(() => {
     cam.position.copy(c.target.clone().add(offset.setLength(len)));
     c.update();
   };
-
+  
   const trackTo = isAdmin ? "/admin" : isAuthenticated ? "/reports" : "/map";
   const analyzeTo = isAdmin ? "/admin" : isAuthenticated ? "/dashboard" : "/map";
   const actions = [
@@ -831,43 +818,16 @@ useEffect(() => {
       </ClientOnly>
     );
 
-  const layersCard = (
-    <>
-      <PanelTitle icon={Layers3}>3D Map Layers</PanelTitle>
-      <ul className="mt-3 space-y-2.5">
-        {LAYER_ROWS.map(({ key, label }) => (
-          <li key={key} className="flex items-center justify-between gap-3 text-xs">
-            <label htmlFor={`layer-${key}`} className="text-city-foreground/90">
-              {label}
-            </label>
-            <Switch
-              id={`layer-${key}`}
-              checked={layers[key] !== false}
-              onCheckedChange={(v) => setLayers((l) => ({ ...l, [key]: v }))}
-            />
-          </li>
-        ))}
-      </ul>
-    </>
-  );
+  
 
   const controlsCard = (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
-        className="dash-round size-14"
-        aria-label="Reset camera heading"
-        onClick={() => setResetNonce((n) => n + 1)}
-      >
-        <Compass
-          className="size-6 text-city-cyan transition-transform"
-          style={{ transform: `rotate(${-heading}deg)` }}
-        />
-      </button>
+      
+      
       <div className="flex flex-col gap-1.5">
         <button
           type="button"
-          className="dash-round size-8"
+          className="dash-round size-9"
           aria-label="Zoom in"
           onClick={() => zoom(0.8)}
         >
@@ -875,7 +835,7 @@ useEffect(() => {
         </button>
         <button
           type="button"
-          className="dash-round size-8"
+          className="dash-round size-9"
           aria-label="Zoom out"
           onClick={() => zoom(1.25)}
         >
@@ -895,7 +855,7 @@ useEffect(() => {
       </button>
       <Link
         to="/city"
-        className="dash-round size-12 text-sm font-semibold text-city-cyan"
+        className="dash-round size-9 text-xs font-semibold text-city-cyan"
         aria-label="Open full 3D city"
       >
         3D
@@ -993,9 +953,7 @@ useEffect(() => {
               <Panel delay={0.2} label="Live feed">
                 <LiveFeed reports={data.reports} />
               </Panel>
-              <Panel delay={0.3} label="3D map layers">
-                {layersCard}
-              </Panel>
+              
               <div className="pointer-events-auto mt-auto flex justify-end">{controlsCard}</div>
             </div>
           </div>
@@ -1025,7 +983,6 @@ useEffect(() => {
           <Panel label="Live feed">
             <LiveFeed reports={data.reports} />
           </Panel>
-          <Panel label="3D map layers">{layersCard}</Panel>
           <Panel label="Underground drainage network">
             <DrainageNetworkCard />
           </Panel>
