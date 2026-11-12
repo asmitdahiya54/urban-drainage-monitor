@@ -918,9 +918,9 @@ useEffect(() => {
         <Link to="/report" className="dash-btn-primary">
           Report an Issue <ArrowRight className="size-4" />
         </Link>
-        <Link to="/city" className="dash-btn-ghost">
-          <Box className="size-4" /> Explore 3D City
-        </Link>
+        <Link to="/community" className="dash-btn-ghost">
+  <ClipboardList className="size-4" /> Propose an Activity
+</Link>
       </div>
     </div>
   );
