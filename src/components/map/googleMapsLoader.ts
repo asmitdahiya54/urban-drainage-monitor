@@ -8,11 +8,9 @@
  * for it.
  */
 
-/** Browser-restricted key. Supports the project variable first. */
+/** Browser-restricted Google Maps API key. */
 export const googleMapsApiKey: string =
-  (import.meta.env["VITE_GOOGLE_MAPS_API_KEY"] as string | undefined) ??
-  (import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined) ??
-  "";
+  (import.meta.env["VITE_GOOGLE_MAPS_API_KEY"] as string | undefined) ?? "";
 
 export const hasGoogleMapsKey = googleMapsApiKey.trim().length > 0;
 
@@ -31,9 +29,7 @@ const CALLBACK = "__udmGoogleMapsReady";
 let loadPromise: Promise<typeof google.maps> | null = null;
 const authListeners = new Set<() => void>();
 
-/** Google calls this global when the key is rejected (invalid key, API not
- * enabled, billing off, referrer not allowed). It fires after load, so it is
- * surfaced through a subscription rather than the load promise. */
+/** Google calls this global when the key is rejected. */
 export function onGoogleMapsAuthFailure(listener: () => void): () => void {
   authListeners.add(listener);
   return () => authListeners.delete(listener);
@@ -72,9 +68,6 @@ export function loadGoogleMaps(): Promise<typeof google.maps> {
       callback: CALLBACK,
       v: "weekly",
     });
-    const trackingId = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"] as
-      string | undefined;
-    if (trackingId) params.set("channel", trackingId);
 
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;

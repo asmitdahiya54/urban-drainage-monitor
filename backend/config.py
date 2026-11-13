@@ -1,6 +1,6 @@
 """Application configuration loaded from environment variables.
 
-Never hard-code credentials here — everything sensitive comes from `.env`.
+Never hard-code credentials here â€” everything sensitive comes from `.env`.
 """
 
 import os
@@ -16,7 +16,7 @@ def normalize_database_url(url: str) -> str:
     """Make a hosted provider URL usable by SQLAlchemy 2.x + psycopg2.
 
     Render (and Heroku) hand out `postgres://...`, a scheme SQLAlchemy 2.0
-    no longer accepts. The connection details are untouched — only the
+    no longer accepts. The connection details are untouched â€” only the
     dialect prefix is rewritten.
     """
     if url.startswith("postgres://"):
@@ -35,7 +35,7 @@ class Config:
     # Flask
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
 
-    # Database — e.g. postgresql://postgres:PASSWORD@localhost:5432/urban_drainage_db
+    # Database â€” e.g. postgresql://postgres:PASSWORD@localhost:5432/urban_drainage_db
     SQLALCHEMY_DATABASE_URI = normalize_database_url(
         os.environ.get(
             "DATABASE_URL",
@@ -66,7 +66,7 @@ class Config:
     DEFAULT_CORS_ORIGINS = (
         "http://localhost:5173,"
         "http://localhost:8080,"
-        "https://flowfinder-community.lovable.app"
+        "https://urban-drainage-monitor.vercel.app"
     )
     CORS_ORIGINS = [
         origin.strip()
