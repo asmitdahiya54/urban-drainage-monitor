@@ -38,14 +38,6 @@ function StatusBadge({ status }: { status: WorkStatus }) {
   );
 }
 
-function SourceTag({ source }: { source: WorkRecord["source"] }) {
-  return (
-    <span className="rounded-full border border-amber-500/50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-500">
-      {source === "sample" ? "SAMPLE DATA" : "ADMIN DEMO RECORD"}
-    </span>
-  );
-}
-
 export function MaintenanceManager({ embedded = false }: { embedded?: boolean }) {
   const { isAdmin } = useAuth();
   const [records, setRecords] = useState<WorkRecord[] | null>(null);
@@ -130,12 +122,6 @@ export function MaintenanceManager({ embedded = false }: { embedded?: boolean })
             </button>
           )}
         </div>
-
-        <p className="mt-4 rounded-lg border border-dashed border-amber-500/50 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-          <span className="font-semibold text-amber-500">Demo data:</span> work orders are fictional
-          sample records and admin demo entries saved in this browser. They are not real municipal
-          work and the locations are not verified.
-        </p>
 
         {toast && (
           <p
@@ -253,7 +239,6 @@ export function MaintenanceManager({ embedded = false }: { embedded?: boolean })
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={r.status} />
-                    <SourceTag source={r.source} />
                   </div>
                   <h2 className="mt-2 font-semibold">{r.title}</h2>
                   <p className="font-mono text-xs text-muted-foreground">
@@ -399,7 +384,6 @@ function WorkDetails({
     <Modal title={record.title} onClose={onClose}>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <StatusBadge status={record.status} />
-        <SourceTag source={record.source} />
         <span className="font-mono text-xs text-muted-foreground">{record.id}</span>
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
