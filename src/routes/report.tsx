@@ -1,15 +1,13 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Camera, CheckCircle2, ImagePlus, MapPin, RefreshCw, Trash2, FileText } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Camera, ImagePlus, MapPin, RefreshCw, Trash2, FileText } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 
 import { LocationPicker } from "@/components/map/LocationPicker";
-import { BackendWarning } from "@/components/BackendStatus";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNav } from "@/components/SiteNav";
-import { useAuth } from "@/context/AuthContext";
-import { isDemoToken } from "@/lib/demoAuth";
-import { downscaleImage, saveDemoReport, type DemoReport } from "@/lib/demoReports";
+import { downscaleImage } from "@/lib/demoReports";
+
 import {
   ApiError,
   ISSUE_TYPE_LABELS,
@@ -116,8 +114,7 @@ type Photo = { id: string; dataUrl: string; name: string };
 
 function ReportPage() {
   const navigate = useNavigate();
-  const { token, user } = useAuth();
-  const demoSession = isDemoToken(token);
+  
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -138,7 +135,6 @@ function ReportPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [demoResult, setDemoResult] = useState<DemoReport | null>(null);
 
   const [checking, setChecking] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateCheck | null>(null);
@@ -234,22 +230,7 @@ function ReportPage() {
     return CATEGORIES.find((c) => c.value === category)?.backend ?? "OTHER";
   }
 
-  function saveLocally() {
-    const report = saveDemoReport({
-      title: title.trim(),
-      category: CATEGORIES.find((c) => c.value === category)?.label ?? category,
-      severity,
-      description: description.trim(),
-      latitude: latitude as number,
-      longitude: longitude as number,
-      landmark: landmark.trim(),
-      photos: photos.map((p) => p.dataUrl),
-      owner_email: user?.email ?? "",
-    });
-    setDemoResult(report);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
+  
   async function submitReport(confirm: boolean) {
     setError(null);
     setCancelled(false);
@@ -267,13 +248,7 @@ function ReportPage() {
       setDuplicate(null);
       setSuccess(message);
       setTimeout(() => navigate({ to: "/report/$id", params: { id: String(report.id) } }), 1200);
-    } catch (caught) {
-      // Server offline: keep the citizen's work as a clearly labelled demo record.
-      if (caught instanceof ApiError && (caught.status === 0 || caught.status >= 500)) {
-        saveLocally();
-        setSubmitting(false);
-        return;
-      }
+          } catch (caught) {
       setSubmitting(false);
       setError(
         caught instanceof ApiError
@@ -281,6 +256,7 @@ function ReportPage() {
           : "Something went wrong while sending your report. Please try again.",
       );
     }
+     
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -293,14 +269,6 @@ function ReportPage() {
       return;
     }
     setError(null);
-
-    if (demoSession) {
-      setSubmitting(true);
-      await new Promise((r) => setTimeout(r, 600));
-      saveLocally();
-      setSubmitting(false);
-      return;
-    }
 
     setCheckNote(null);
     setCancelled(false);
@@ -325,35 +293,6 @@ function ReportPage() {
     await submitReport(false);
   }
 
-  function resetForm() {
-    setTitle("");
-    setCategory("");
-    setSeverity("MEDIUM");
-    setDescription("");
-    setLatitude(null);
-    setLongitude(null);
-    setLatText("");
-    setLngText("");
-    setLandmark("");
-    setPhotos([]);
-    setErrors({});
-    setError(null);
-    setDemoResult(null);
-    setCheckNote(null);
-  }
-
-  if (demoResult) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <SiteNav />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12 sm:py-16">
-          <DemoSuccess report={demoResult} onAnother={resetForm} />
-        </main>
-        <SiteFooter />
-      </div>
-    );
-  }
-
   const busy = submitting || checking;
 
   return (
@@ -366,15 +305,7 @@ function ReportPage() {
           Tell us what is wrong and exactly where it is. City teams use the location to find the
           spot and to see where problems repeat.
         </p>
-        {!demoSession && (
-          <BackendWarning demoNote="Reports you submit now will be saved only in this browser as clearly labelled demo records, not on the server." />
-        )}
-        {demoSession && (
-          <p className="mt-4 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-            <span className="font-semibold text-primary">Demo mode:</span> reports from demo
-            accounts are saved only in this browser and are not sent to the city.
-          </p>
-        )}
+
 
         <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
           <Section
@@ -534,9 +465,9 @@ function ReportPage() {
             icon={<Camera className="size-5 text-primary" />}
           >
             <p className="text-xs text-muted-foreground">
-              Up to {MAX_PHOTOS} photos · JPG, PNG or WebP · max {MAX_PHOTO_MB} MB each. Photos stay
-              on this device in demo mode and are not uploaded.
-            </p>
+  Up to {MAX_PHOTOS} photos · JPG, PNG or WebP · max {MAX_PHOTO_MB} MB each.
+  Photos can be previewed here but aren't uploaded to the server yet.
+</p>
             <input
               ref={galleryInput}
               type="file"
@@ -621,12 +552,7 @@ function ReportPage() {
                 ))}
               </ul>
             )}
-            {!demoSession && photos.length > 0 && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Photo upload to the city server isn't available yet; photos are kept only with demo
-                records.
-              </p>
-            )}
+            
           </Section>
 
           {checking && (
@@ -722,75 +648,6 @@ function ReportPage() {
         </form>
       </main>
       <SiteFooter />
-    </div>
-  );
-}
-
-function DemoSuccess({ report, onAnother }: { report: DemoReport; onAnother: () => void }) {
-  return (
-    <div className="rounded-2xl border border-primary/40 bg-card/80 p-6 shadow-sm backdrop-blur sm:p-8">
-      <CheckCircle2 className="size-12 text-primary drop-shadow-[0_0_10px_var(--color-primary)]" />
-      <span className="mt-4 inline-block rounded-full border border-amber-500/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-500">
-        DEMO RECORD — saved in this browser only, not sent to the city
-      </span>
-      <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">Report saved</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Reference{" "}
-        <span className="font-mono font-semibold text-foreground">{report.reference}</span>
-      </p>
-      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <dt className="text-xs uppercase text-muted-foreground">Title</dt>
-          <dd className="font-semibold">{report.title}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-muted-foreground">Category</dt>
-          <dd>{report.category}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-muted-foreground">Severity</dt>
-          <dd>{report.severity.charAt(0) + report.severity.slice(1).toLowerCase()}</dd>
-        </div>
-        <div className="sm:col-span-2">
-          <dt className="text-xs uppercase text-muted-foreground">Location</dt>
-          <dd>
-            {report.latitude.toFixed(5)}, {report.longitude.toFixed(5)}
-            {report.landmark && ` · ${report.landmark}`}
-          </dd>
-        </div>
-        <div className="sm:col-span-2">
-          <dt className="text-xs uppercase text-muted-foreground">Description</dt>
-          <dd className="whitespace-pre-line">{report.description}</dd>
-        </div>
-      </dl>
-      {report.photos.length > 0 && (
-        <ul className="mt-5 grid grid-cols-3 gap-3">
-          {report.photos.map((src, i) => (
-            <li key={i}>
-              <img
-                src={src}
-                alt={`Report photo ${i + 1}`}
-                className="aspect-square w-full rounded-lg border border-border object-cover"
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="mt-8 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={onAnother}
-          className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          Report another issue
-        </button>
-        <Link
-          to="/dashboard"
-          className="rounded-lg border border-border px-4 py-2.5 text-sm font-semibold hover:bg-secondary"
-        >
-          Back to dashboard
-        </Link>
-      </div>
     </div>
   );
 }
