@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { CityExperienceLoader } from "@/components/city/CityExperienceLoader";
-import { DEMONSTRATION_ZONES, loadCityData } from "@/components/city/city-data";
+import { loadCityData } from "@/components/city/city-data";
 import type { CityData } from "@/components/city/types";
 
 const INITIAL_DATA: CityData = {
-  zones: DEMONSTRATION_ZONES,
+  zones: [],
   summary: null,
   reports: [],
-  source: "demonstration",
+  source: "unavailable",
 };
 
 export const Route = createFileRoute("/city")({

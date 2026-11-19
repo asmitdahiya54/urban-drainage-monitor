@@ -1,5 +1,5 @@
 import { ISSUE_TYPE_LABELS, publicMapApi, type MapReport, type MapSummary } from "@/services/api";
-import { demoRiskZones } from "@/data/demoData";
+
 import type { CityData, CityRiskLevel, CityZone } from "./types";
 
 const ACTIVE_STATUSES = new Set([
@@ -10,7 +10,7 @@ const ACTIVE_STATUSES = new Set([
   "IN_PROGRESS",
 ]);
 
-export const DEMONSTRATION_ZONES: CityZone[] = demoRiskZones;
+
 
 function riskFor(reports: MapReport[]): CityRiskLevel {
   const severe = reports.filter((report) => ["HIGH", "CRITICAL"].includes(report.severity)).length;
@@ -72,7 +72,7 @@ function projectReports(reports: MapReport[]): CityZone[] {
 export function adaptMapData(reports: MapReport[], summary: MapSummary): CityData {
   const zones = projectReports(reports);
   if (zones.length === 0) {
-    return { zones: DEMONSTRATION_ZONES, summary, reports, source: "demonstration" };
+    return { zones: [], summary, reports, source: "unavailable" };
   }
   return { zones, summary, reports, source: "live" };
 }
@@ -83,10 +83,10 @@ export async function loadCityData(): Promise<CityData> {
     return adaptMapData(result.reports, result.summary);
   } catch {
     return {
-      zones: DEMONSTRATION_ZONES,
+      zones: [],
       summary: null,
       reports: [],
-      source: "demonstration",
+      source: "unavailable",
     };
   }
 }

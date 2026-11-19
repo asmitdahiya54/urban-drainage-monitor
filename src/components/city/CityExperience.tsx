@@ -82,9 +82,7 @@ function ZonePanel({ zone, onClose }: { zone: CityZone; onClose: () => void }) {
       <p className="mt-3 text-xs text-city-muted">
         {zone.lastReported
           ? `Last reported ${new Date(zone.lastReported).toLocaleDateString()}`
-          : zone.source === "demonstration"
-            ? "Demonstration location"
-            : "Recently reported"}
+          : "Report date unavailable"}
       </p>
       <div className="mt-5 flex gap-2">
         <Button
@@ -163,7 +161,7 @@ export default function CityExperience({
   }, [onEnter, standalone]);
 
   const dataLabel = useMemo(
-    () => (data.source === "live" ? "Live public report layer" : "Demonstration city layer"),
+    () => (data.source === "live" ? "Verified citizen report locations" : "No verified location reports available"),
     [data.source],
   );
 
