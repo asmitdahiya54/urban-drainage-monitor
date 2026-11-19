@@ -922,14 +922,7 @@ useEffect(() => {
               <Panel delay={0.1} label="City overview">
                 <CityOverview data={data} />
               </Panel>
-              <div className="mt-auto flex flex-col gap-5">
-                <Panel delay={0.2} label="City status">
-                  <CityStatusCard />
-                </Panel>
-                <Panel delay={0.25} label="Underground drainage network">
-                  <DrainageNetworkCard />
-                </Panel>
-              </div>
+              
             </div>
             <div className="flex flex-col items-center justify-between">
               <Panel delay={0.15} className="w-full max-w-lg" label="Live weather">
@@ -980,16 +973,11 @@ useEffect(() => {
           <Panel label="Live weather">
             <WeatherCard weather={weather} />
           </Panel>
-          <Panel label="Live feed">
-            <LiveFeed reports={data.reports} />
-          </Panel>
-          <Panel label="Underground drainage network">
-            <DrainageNetworkCard />
-          </Panel>
-          <Panel label="City status">
-            <CityStatusCard />
-          </Panel>
-          <Panel label="Quick actions">{actionBar}</Panel>
+            <Panel label="Live feed">
+  <LiveFeed reports={data.reports} />
+</Panel>
+
+<Panel label="Quick actions">{actionBar}</Panel>
         </div>
 
         <section className="border-t border-city-line bg-city-panel/40">
