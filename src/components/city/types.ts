@@ -11,7 +11,7 @@ export type CityZone = {
   unresolvedCount: number;
   lastReported: string | null;
   position: [number, number, number];
-  source: "live";
+  source: "live" | "demonstration";
   reportIds: number[];
 };
 
@@ -19,7 +19,7 @@ export type CityData = {
   zones: CityZone[];
   summary: MapSummary | null;
   reports: MapReport[];
-  source: "live" | "unavailable";
+  source: "live" | "demonstration";
 };
 
 export type CityLayers = {

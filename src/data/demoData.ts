@@ -4,7 +4,7 @@
  * Replace with real API responses when Weather / Reports / ML services are connected:
  *   const data = realData ?? demoData;
  */
-import type { CityRiskLevel } from "@/components/city/types";
+import type { CityRiskLevel, CityZone } from "@/components/city/types";
 
 export type RiskLevel = CityRiskLevel;
 
@@ -77,6 +77,33 @@ const ZONE_SEEDS: DemoZoneSeed[] = [
   },
 ];
 
+export const demoRiskZones: CityZone[] = ZONE_SEEDS.map((z) => ({
+  ...z,
+  id: `demo-${z.name.toLowerCase().replace(/\s+/g, "-")}`,
+  lastReported: null,
+  source: "demonstration",
+  reportIds: [],
+}));
+
+const countRisk = (level: RiskLevel) => demoRiskZones.filter((z) => z.risk === level).length;
+
+// ---------- City overview ----------
+const TOTAL = demoRiskZones.reduce((sum, z) => sum + z.reportCount, 0); // 248
+const OPEN = demoRiskZones.reduce((sum, z) => sum + z.unresolvedCount, 0); // 85
+const IN_PROGRESS = 67;
+const CRITICAL = 18;
+
+export const demoCityOverview = {
+  total: TOTAL,
+  critical: CRITICAL,
+  inProgress: IN_PROGRESS,
+  resolved: TOTAL - OPEN,
+  open: OPEN,
+  resolutionRate: Math.round(((TOTAL - OPEN) / TOTAL) * 100),
+  highRiskZones: demoRiskZones.length,
+  isDemo: true,
+};
+
 // ---------- Weather ----------
 export type WeatherData = {
   location: string;
@@ -109,6 +136,36 @@ export function rainfallLevel(mm: number): "low" | "moderate" | "heavy" {
   if (mm >= 7.5) return "moderate";
   return "low";
 }
+
+// ---------- Risk prediction ----------
+export type RiskFactor = { label: string; value: number };
+export type RiskPredictionData = {
+  riskScore: number;
+  riskLevel: RiskLevel;
+  highRiskZones: number;
+  mediumRiskZones: number;
+  lowRiskZones: number;
+  factors: RiskFactor[];
+  predictionTime: string;
+  isDemo: boolean;
+};
+
+export const demoRiskPrediction: RiskPredictionData = {
+  riskScore: 67,
+  riskLevel: "MEDIUM",
+  highRiskZones: countRisk("HIGH"),
+  mediumRiskZones: countRisk("MEDIUM"),
+  lowRiskZones: countRisk("LOW"),
+  factors: [
+    { label: "Rainfall intensity", value: 72 },
+    { label: "Blocked drains", value: 61 },
+    { label: "Historical incidents", value: 54 },
+    { label: "Waterlogging reports", value: 68 },
+    { label: "Drainage capacity", value: 43 },
+  ],
+  predictionTime: new Date().toISOString(),
+  isDemo: true,
+};
 
 // ---------- Live feed ----------
 export type FeedItem = {
@@ -177,3 +234,31 @@ export const demoLiveFeed: FeedItem[] = [
     isDemo: true,
   },
 ];
+
+// ---------- Drainage network ----------
+const MONITORED = 142;
+const HEALTHY = 96;
+const WARNING = 31;
+const CRIT = MONITORED - HEALTHY - WARNING; // 15
+
+export const demoDrainageNetwork = {
+  coverage: 87,
+  monitored: MONITORED,
+  healthy: HEALTHY,
+  warning: WARNING,
+  critical: CRIT,
+  healthyPct: Math.round((HEALTHY / MONITORED) * 100),
+  warningPct: Math.round((WARNING / MONITORED) * 100),
+  criticalPct:
+    100 - Math.round((HEALTHY / MONITORED) * 100) - Math.round((WARNING / MONITORED) * 100),
+  isDemo: true,
+};
+
+// ---------- Service status ----------
+export const demoCityStatus = [
+  { label: "Drainage Network", value: "Operational", tone: "low" },
+  { label: "Risk Monitoring", value: "Active", tone: "low" },
+  { label: "Citizen Reports", value: "Active", tone: "low" },
+  { label: "AI Prediction", value: "Prototype", tone: "medium" },
+  { label: "Weather", value: "Demo Data", tone: "medium" },
+] as const;

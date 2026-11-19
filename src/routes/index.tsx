@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { CityExperienceLoader, CityLoading } from "@/components/city/CityExperienceLoader";
-import { loadCityData } from "@/components/city/city-data";
+import { DEMONSTRATION_ZONES, loadCityData } from "@/components/city/city-data";
 import type { CityData } from "@/components/city/types";
 import { PlatformHome } from "@/components/home/PlatformHome";
 
@@ -31,10 +31,10 @@ export const Route = createFileRoute("/")({
 
 const INTRO_STORAGE_KEY = "hasSeenCityIntro";
 const INITIAL_CITY_DATA: CityData = {
-  zones: [],
+  zones: DEMONSTRATION_ZONES,
   summary: null,
   reports: [],
-  source: "unavailable",
+  source: "demonstration",
 };
 
 function Index() {
